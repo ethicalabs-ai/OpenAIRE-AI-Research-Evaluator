@@ -147,6 +147,7 @@
     <!-- Footer Area -->
     <footer class="footer">
       <div class="footer-links">
+        <a href="https://innovation.openaire.eu/component/content/article/openaire-ai-hackathon.html" target="_blank">OpenAIRE AI Hackathon 2026</a>
         <a href="https://www.ethicalabs.ai/research/" target="_blank">Research</a>
         <a href="https://huggingface.co/ethicalabs" target="_blank">Hugging Face</a>
         <a href="https://github.com/ethicallabs-ai" target="_blank">GitHub</a>
@@ -154,6 +155,7 @@
       <div class="copyright">&copy; 2026 ethicalabs.ai — incubated by dorvan srl</div>
       <div class="address">Operational headquarters: Via Privata Farnese 1/3, 20146 Milano (MI), Italy</div>
       <div class="address">Registered address: Via Enrico Cernuschi 4, 20129 Milano (MI), Italy</div>
+      <div class="address cc-by">OpenAIRE Graph API — CC BY 4.0</div>
     </footer>
   </div>
 </template>

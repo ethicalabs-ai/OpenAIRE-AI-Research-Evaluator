@@ -1,6 +1,6 @@
 # OpenAIRE-AI-Research-Evaluator
 
-A multi-model LLM-as-Judge pipeline that builds annotation datasets to train Echo-DSRN intent classifiers — demo for the OpenAIRE 2026 Hackathon.
+A multi-model LLM-as-Judge pipeline that builds annotation datasets to train Echo-DSRN intent classifiers — entry for the [OpenAIRE AI Hackathon 2026](https://innovation.openaire.eu/component/content/article/openaire-ai-hackathon.html), co-organised by OpenAIRE and Alien Intelligence.
 
 ---
 
@@ -156,3 +156,5 @@ print(label, probs)
 Operational headquarters: Via Privata Farnese 1/3, 20146 Milano (MI), Italy
 
 Registered address: Via Enrico Cernuschi 4, 20129 Milano (MI), Italy
+
+This project uses the [OpenAIRE Graph API](https://graph.openaire.eu) — all materials created by OpenAIRE are licensed under CC BY 4.0.
