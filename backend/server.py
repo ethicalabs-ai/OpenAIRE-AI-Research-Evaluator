@@ -1116,10 +1116,19 @@ def list_papers(
     limit: int = 10,
     offset: int = 0,
     sort_by: str = "recent",
+    label: str = "",
+    source: str = "",
     db: Session = Depends(get_db),
 ):
     # Exclude internal evaluation records (source='dataset') from the graph UI
     base = db.query(PaperRecord).filter(PaperRecord.source != "dataset")
+
+    # Server-side filters
+    if label:
+        base = base.filter(PaperRecord.initial_intent == label)
+    if source:
+        base = base.filter(PaperRecord.source == source)
+
     total = base.count()
 
     sort_map = {

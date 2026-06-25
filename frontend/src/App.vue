@@ -338,31 +338,39 @@ export default {
       }
     };
 
-    const handleHashChange = () => {
-      const hash = window.location.hash;
-      if (hash === "#collab") {
-        activeTab.value = "collab";
-      } else if (hash === "#model_card") {
-        activeTab.value = "model_card";
-      } else if (hash === "#openaire") {
-        activeTab.value = "openaire";
-      } else if (hash === "#text") {
-        activeTab.value = "text";
-      } else if (hash === "#saved") {
-        activeTab.value = "saved";
-      }
+    const handlePathChange = () => {
+      const path = window.location.pathname.replace(/\/$/, "") || "/";
+      const tabMap = {
+        "/collab": "collab",
+        "/model_card": "model_card",
+        "/openaire": "openaire",
+        "/text": "text",
+        "/saved": "saved",
+      };
+      const tab = tabMap[path];
+      if (tab) activeTab.value = tab;
     };
 
     watch(activeTab, (newTab) => {
-      window.location.hash = newTab;
+      const pathMap = {
+        collab: "/collab",
+        model_card: "/model_card",
+        openaire: "/openaire",
+        text: "/text",
+        saved: "/saved",
+      };
+      const path = pathMap[newTab] || "/";
+      if (window.location.pathname !== path) {
+        window.history.pushState(null, "", path);
+      }
     });
 
     onMounted(() => {
       checkHealth();
       loadSavedItems();
       syncAuthAndHistory();
-      handleHashChange();
-      window.addEventListener("hashchange", handleHashChange);
+      handlePathChange();
+      window.addEventListener("popstate", handlePathChange);
     });
 
     // Classify handler

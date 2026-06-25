@@ -122,6 +122,53 @@ export default {
     const filterAnnotator = ref("");
     const sortBy = ref("recent");
 
+    // ── URL query sync ───────────────────────────────────────────────────────
+    const readQueryParams = () => {
+      const p = new URLSearchParams(window.location.search);
+      if (p.has("q")) searchQuery.value = p.get("q") || "";
+      if (p.has("label")) filterLabel.value = p.get("label") || "";
+      if (p.has("source")) filterSource.value = p.get("source") || "";
+      if (p.has("annotator")) filterAnnotator.value = p.get("annotator") || "";
+      if (p.has("flagged")) filterFlagged.value = p.get("flagged") === "1";
+      if (p.has("sort")) sortBy.value = p.get("sort") || "recent";
+      if (p.has("src")) searchSource.value = p.get("src") || "local";
+    };
+
+    readQueryParams();
+
+    let _syncTimer = null;
+    const syncQueryParams = () => {
+      const p = new URLSearchParams();
+      if (searchQuery.value) p.set("q", searchQuery.value);
+      if (filterLabel.value) p.set("label", filterLabel.value);
+      if (filterSource.value) p.set("source", filterSource.value);
+      if (filterAnnotator.value) p.set("annotator", filterAnnotator.value);
+      if (filterFlagged.value) p.set("flagged", "1");
+      if (sortBy.value !== "recent") p.set("sort", sortBy.value);
+      if (searchSource.value !== "local") p.set("src", searchSource.value);
+      const qs = p.toString();
+      const url = window.location.pathname + (qs ? "?" + qs : "");
+      window.history.replaceState(null, "", url);
+    };
+
+    watch(
+      [
+        filterLabel,
+        filterSource,
+        filterFlagged,
+        filterAnnotator,
+        sortBy,
+        searchSource,
+      ],
+      () => {
+        syncQueryParams();
+      },
+    );
+    watch(searchQuery, () => {
+      clearTimeout(_syncTimer);
+      _syncTimer = setTimeout(syncQueryParams, 400);
+    });
+
     // ── Pagination ────────────────────────────────────────────────────────────
     const PAGE_SIZE = 10;
     const displayCount = ref(PAGE_SIZE);
@@ -136,15 +183,6 @@ export default {
             (p.title || "").toLowerCase().includes(q) ||
             (p.doi || "").toLowerCase().includes(q),
         );
-      }
-      if (filterLabel.value) {
-        const lbl = filterLabel.value;
-        result = result.filter(
-          (p) => (p.consensus_label || p.initial_intent) === lbl,
-        );
-      }
-      if (filterSource.value) {
-        result = result.filter((p) => p.source === filterSource.value);
       }
       if (filterFlagged.value) {
         result = result.filter((p) => p.flag_count > 0);
@@ -164,9 +202,14 @@ export default {
     // ── Papers fetching ───────────────────────────────────────────────────────
     const fetchPapers = async () => {
       try {
-        const res = await fetch(
-          `/api/annotations/papers?limit=${PAGE_SIZE}&offset=0&sort_by=${sortBy.value}`,
-        );
+        const params = new URLSearchParams({
+          limit: PAGE_SIZE,
+          offset: 0,
+          sort_by: sortBy.value,
+        });
+        if (filterLabel.value) params.set("label", filterLabel.value);
+        if (filterSource.value) params.set("source", filterSource.value);
+        const res = await fetch(`/api/annotations/papers?${params}`);
         const data = await res.json();
         papers.value = data.papers;
         totalPapers.value = data.total;
@@ -181,9 +224,14 @@ export default {
       if (papers.value.length >= totalPapers.value) return;
       isLoadingPapers.value = true;
       try {
-        const res = await fetch(
-          `/api/annotations/papers?limit=${PAGE_SIZE}&offset=${papers.value.length}&sort_by=${sortBy.value}`,
-        );
+        const params = new URLSearchParams({
+          limit: PAGE_SIZE,
+          offset: papers.value.length,
+          sort_by: sortBy.value,
+        });
+        if (filterLabel.value) params.set("label", filterLabel.value);
+        if (filterSource.value) params.set("source", filterSource.value);
+        const res = await fetch(`/api/annotations/papers?${params}`);
         const data = await res.json();
         papers.value = papers.value.concat(data.papers);
         displayCount.value = papers.value.length;
@@ -199,12 +247,13 @@ export default {
     };
 
     // ── Reset pagination on filter/search change ──────────────────────────────
-    watch(
-      [searchQuery, filterLabel, filterSource, filterFlagged, filterAnnotator],
-      () => {
-        displayCount.value = PAGE_SIZE;
-      },
-    );
+    watch([searchQuery, filterFlagged, filterAnnotator], () => {
+      displayCount.value = PAGE_SIZE;
+    });
+    watch([filterLabel, filterSource], () => {
+      displayCount.value = PAGE_SIZE;
+      fetchPapers();
+    });
 
     const onSortChange = (val) => {
       sortBy.value = val;

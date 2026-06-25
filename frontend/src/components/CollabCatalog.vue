@@ -97,6 +97,48 @@
       </button>
     </div>
 
+    <!-- Active filters -->
+    <div
+      v-if="searchSource === 'local' && hasActiveFilters"
+      class="active-filters"
+    >
+      <span
+        v-if="filterLabel"
+        class="filter-pill"
+        @click="$emit('update:filterLabel', '')"
+      >
+        {{ filterLabel }} ✕
+      </span>
+      <span
+        v-if="filterSource"
+        class="filter-pill"
+        @click="$emit('update:filterSource', '')"
+      >
+        {{ filterSource }} ✕
+      </span>
+      <span
+        v-if="filterFlagged"
+        class="filter-pill"
+        @click="$emit('update:filterFlagged', false)"
+      >
+        Flagged ✕
+      </span>
+      <span
+        v-if="filterAnnotator"
+        class="filter-pill"
+        @click="$emit('update:filterAnnotator', '')"
+      >
+        {{ filterAnnotator === "human" ? "Human only" : "LLM only" }} ✕
+      </span>
+      <span
+        v-if="sortBy !== 'recent'"
+        class="filter-pill"
+        @click="$emit('update:sortBy', 'recent')"
+      >
+        {{ sortBy }} ✕
+      </span>
+    </div>
+
     <div
       class="papers-list scrollable"
       ref="scrollContainer"
@@ -236,6 +278,17 @@ export default {
     "update:filterAnnotator",
     "update:sortBy",
   ],
+  computed: {
+    hasActiveFilters() {
+      return (
+        this.filterLabel ||
+        this.filterSource ||
+        this.filterFlagged ||
+        this.filterAnnotator ||
+        this.sortBy !== "recent"
+      );
+    },
+  },
   methods: {
     onScroll() {
       const el = this.$refs.scrollContainer;
@@ -362,6 +415,28 @@ export default {
 .filter-toggle.active {
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+.filter-pill {
+  background: rgba(0, 242, 254, 0.1);
+  border: 1px solid rgba(0, 242, 254, 0.2);
+  color: var(--accent-blue);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.filter-pill:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
   color: #fca5a5;
 }
 
