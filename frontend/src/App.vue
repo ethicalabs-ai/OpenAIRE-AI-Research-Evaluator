@@ -24,7 +24,17 @@
         :class="{ active: activeTab === 'openaire' }"
         @click="activeTab = 'openaire'"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
           <polyline points="2 17 12 22 22 17"></polyline>
           <polyline points="2 12 12 17 22 12"></polyline>
@@ -36,7 +46,17 @@
         :class="{ active: activeTab === 'collab' }"
         @click="activeTab = 'collab'"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
           <circle cx="9" cy="7" r="4"></circle>
           <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
@@ -49,8 +69,20 @@
         :class="{ active: activeTab === 'text' }"
         @click="activeTab = 'text'"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
+          ></path>
         </svg>
         Free Text
       </button>
@@ -59,7 +91,17 @@
         :class="{ active: activeTab === 'saved' }"
         @click="activeTab = 'saved'"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
         </svg>
         Saved History ({{ savedItems.length }})
@@ -69,7 +111,17 @@
         :class="{ active: activeTab === 'model_card' }"
         @click="activeTab = 'model_card'"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
           <line x1="9" y1="9" x2="15" y2="9"></line>
           <line x1="9" y1="13" x2="15" y2="13"></line>
@@ -83,8 +135,20 @@
     <main class="workspace">
       <!-- Error Banner -->
       <div v-if="error" class="error-banner">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polygon
+            points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"
+          ></polygon>
           <line x1="12" y1="8" x2="12" y2="12"></line>
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
@@ -99,7 +163,10 @@
       <div v-if="isInitializing" class="init-card">
         <div class="cyber-spinner"></div>
         <h3>Initializing Intent Classifier...</h3>
-        <p>Checking model status on startup. If this is the very first request, loading weights takes ~2-3 seconds.</p>
+        <p>
+          Checking model status on startup. If this is the very first request,
+          loading weights takes ~2-3 seconds.
+        </p>
         <div class="progress-bar-container">
           <div class="progress-bar-fill"></div>
         </div>
@@ -107,9 +174,7 @@
 
       <div v-else>
         <!-- Model Card Tab -->
-        <model-card-tab
-          v-if="activeTab === 'model_card'"
-        />
+        <model-card-tab v-if="activeTab === 'model_card'" />
 
         <!-- OpenAIRE Tab -->
         <openaire-tab
@@ -130,10 +195,7 @@
         />
 
         <!-- Collab Tab -->
-        <collab-tab
-          v-if="activeTab === 'collab'"
-          @save="handleSave"
-        />
+        <collab-tab v-if="activeTab === 'collab'" @save="handleSave" />
 
         <!-- Saved History Tab -->
         <saved-tab
@@ -147,26 +209,53 @@
     <!-- Footer Area -->
     <footer class="footer">
       <div class="footer-links">
-        <a href="https://innovation.openaire.eu/component/content/article/openaire-ai-hackathon.html" target="_blank">OpenAIRE AI Hackathon 2026</a>
-        <a href="https://www.ethicalabs.ai/research/" target="_blank">Research</a>
-        <a href="https://huggingface.co/ethicalabs" target="_blank">Hugging Face</a>
+        <a href="https://www.ethicalabs.ai/research/" target="_blank"
+          >Research</a
+        >
+        <a href="https://huggingface.co/ethicalabs" target="_blank"
+          >Hugging Face</a
+        >
         <a href="https://github.com/ethicallabs-ai" target="_blank">GitHub</a>
       </div>
-      <div class="copyright">&copy; 2026 ethicalabs.ai — incubated by dorvan srl</div>
-      <div class="address">Operational headquarters: Via Privata Farnese 1/3, 20146 Milano (MI), Italy</div>
-      <div class="address">Registered address: Via Enrico Cernuschi 4, 20129 Milano (MI), Italy</div>
-      <div class="address cc-by">OpenAIRE Graph API — CC BY 4.0</div>
+      <div class="footer-openaire">
+        <span
+          ><a
+            href="https://innovation.openaire.eu/component/content/article/openaire-ai-hackathon.html"
+            target="_blank"
+            >OpenAIRE AI Hackathon 2026</a
+          ></span
+        >
+        <span>·</span>
+        <span
+          ><a href="https://graph.openaire.eu" target="_blank"
+            >OpenAIRE Graph</a
+          ></span
+        >
+        <span>·</span>
+        <span class="cc-by">CC BY 4.0</span>
+      </div>
+      <div class="footer-legal">
+        <div class="copyright">
+          &copy; 2026 ethicalabs.ai — incubated by dorvan srl
+        </div>
+        <div class="address">
+          Operational: Via Privata Farnese 1/3, 20146 Milano (MI)
+        </div>
+        <div class="address">
+          Registered: Via Enrico Cernuschi 4, 20129 Milano (MI), Italy
+        </div>
+      </div>
     </footer>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, watch } from 'vue'
-import ModelCardTab from './components/ModelCardTab.vue'
-import OpenaireTab from './components/OpenaireTab.vue'
-import TextTab from './components/TextTab.vue'
-import SavedTab from './components/SavedTab.vue'
-import CollabTab from './components/CollabTab.vue'
+import { ref, onMounted, watch } from "vue";
+import ModelCardTab from "./components/ModelCardTab.vue";
+import OpenaireTab from "./components/OpenaireTab.vue";
+import TextTab from "./components/TextTab.vue";
+import SavedTab from "./components/SavedTab.vue";
+import CollabTab from "./components/CollabTab.vue";
 
 export default {
   components: {
@@ -177,177 +266,193 @@ export default {
     CollabTab,
   },
   setup() {
-    const activeTab = ref('openaire')
-    const isLoading = ref(false)
-    const isInitializing = ref(true)
-    const error = ref('')
-    const savedItems = ref([])
-    const isAuthenticated = ref(false)
+    const activeTab = ref("openaire");
+    const isLoading = ref(false);
+    const isInitializing = ref(true);
+    const error = ref("");
+    const savedItems = ref([]);
+    const isAuthenticated = ref(false);
 
     // Load saved items from localStorage
     const loadSavedItems = () => {
       try {
-        const stored = localStorage.getItem('echo_intent_history')
+        const stored = localStorage.getItem("echo_intent_history");
         if (stored) {
-          savedItems.value = JSON.parse(stored)
+          savedItems.value = JSON.parse(stored);
         }
       } catch (err) {
-        console.error('Failed to load history from localStorage:', err)
+        console.error("Failed to load history from localStorage:", err);
       }
-    }
+    };
 
     // Sync auth state and merge localStorage with server-side saved papers
     const syncAuthAndHistory = async () => {
       try {
-        const res = await fetch('/api/auth/me')
-        const data = await res.json()
-        if (!data.authenticated) return
-        isAuthenticated.value = true
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+        if (!data.authenticated) return;
+        isAuthenticated.value = true;
 
-        const localItems = JSON.parse(localStorage.getItem('echo_intent_history') || '[]')
+        const localItems = JSON.parse(
+          localStorage.getItem("echo_intent_history") || "[]",
+        );
         if (localItems.length > 0) {
-          const syncRes = await fetch('/api/saved/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const syncRes = await fetch("/api/saved/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(localItems),
-          })
+          });
           if (syncRes.ok) {
-            const merged = await syncRes.json()
-            savedItems.value = merged
-            localStorage.setItem('echo_intent_history', JSON.stringify(merged))
-            return
+            const merged = await syncRes.json();
+            savedItems.value = merged;
+            localStorage.setItem("echo_intent_history", JSON.stringify(merged));
+            return;
           }
         }
         // No local items (or sync failed) — load from DB
-        const dbRes = await fetch('/api/saved')
+        const dbRes = await fetch("/api/saved");
         if (dbRes.ok) {
-          const dbItems = await dbRes.json()
-          savedItems.value = dbItems
-          localStorage.setItem('echo_intent_history', JSON.stringify(dbItems))
+          const dbItems = await dbRes.json();
+          savedItems.value = dbItems;
+          localStorage.setItem("echo_intent_history", JSON.stringify(dbItems));
         }
       } catch (err) {
-        console.error('Auth sync for saved history failed:', err)
+        console.error("Auth sync for saved history failed:", err);
       }
-    }
+    };
 
     // Check health status of model on startup
     const checkHealth = async () => {
       try {
-        const res = await fetch('/api/classify/intent/health')
+        const res = await fetch("/api/classify/intent/health");
         if (res.status === 200) {
-          isInitializing.value = false
+          isInitializing.value = false;
         } else {
-          error.value = "Failed to establish connection to the intent classifier backend."
-          isInitializing.value = false
+          error.value =
+            "Failed to establish connection to the intent classifier backend.";
+          isInitializing.value = false;
         }
       } catch (err) {
         // Retry connection
-        setTimeout(checkHealth, 3000)
+        setTimeout(checkHealth, 3000);
       }
-    }
+    };
 
     const handleHashChange = () => {
-      const hash = window.location.hash
-      if (hash === '#collab') {
-        activeTab.value = 'collab'
-      } else if (hash === '#model_card') {
-        activeTab.value = 'model_card'
-      } else if (hash === '#openaire') {
-        activeTab.value = 'openaire'
-      } else if (hash === '#text') {
-        activeTab.value = 'text'
-      } else if (hash === '#saved') {
-        activeTab.value = 'saved'
+      const hash = window.location.hash;
+      if (hash === "#collab") {
+        activeTab.value = "collab";
+      } else if (hash === "#model_card") {
+        activeTab.value = "model_card";
+      } else if (hash === "#openaire") {
+        activeTab.value = "openaire";
+      } else if (hash === "#text") {
+        activeTab.value = "text";
+      } else if (hash === "#saved") {
+        activeTab.value = "saved";
       }
-    }
+    };
 
     watch(activeTab, (newTab) => {
-      window.location.hash = newTab
-    })
+      window.location.hash = newTab;
+    });
 
     onMounted(() => {
-      checkHealth()
-      loadSavedItems()
-      syncAuthAndHistory()
-      handleHashChange()
-      window.addEventListener('hashchange', handleHashChange)
-    })
+      checkHealth();
+      loadSavedItems();
+      syncAuthAndHistory();
+      handleHashChange();
+      window.addEventListener("hashchange", handleHashChange);
+    });
 
     // Classify handler
     const handleClassify = async ({ title, abstract, callback }) => {
-      isLoading.value = true
-      error.value = ''
+      isLoading.value = true;
+      error.value = "";
       try {
-        const response = await fetch('/api/classify/intent', {
-          method: 'POST',
+        const response = await fetch("/api/classify/intent", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ title, abstract })
-        })
+          body: JSON.stringify({ title, abstract }),
+        });
 
         if (!response.ok) {
-          const errData = await response.json().catch(() => ({}))
-          throw new Error(errData.detail || `HTTP error! Status: ${response.status}`)
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(
+            errData.detail || `HTTP error! Status: ${response.status}`,
+          );
         }
 
-        const data = await response.json()
-        callback(data)
+        const data = await response.json();
+        callback(data);
       } catch (err) {
-        error.value = err.message || "An unexpected error occurred during classification."
+        error.value =
+          err.message || "An unexpected error occurred during classification.";
       } finally {
-        isLoading.value = false
+        isLoading.value = false;
       }
-    }
+    };
 
     // Save handler
     const handleSave = async (item) => {
-      if (savedItems.value.some(i => i.title === item.title)) return
+      if (savedItems.value.some((i) => i.title === item.title)) return;
 
       if (isAuthenticated.value) {
         try {
-          const res = await fetch('/api/saved', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const res = await fetch("/api/saved", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(item),
-          })
+          });
           if (res.ok) {
-            const saved = await res.json()
-            savedItems.value.unshift(saved)
-            localStorage.setItem('echo_intent_history', JSON.stringify(savedItems.value))
-            return
+            const saved = await res.json();
+            savedItems.value.unshift(saved);
+            localStorage.setItem(
+              "echo_intent_history",
+              JSON.stringify(savedItems.value),
+            );
+            return;
           }
         } catch (err) {
-          console.error('DB save failed, falling back to local:', err)
+          console.error("DB save failed, falling back to local:", err);
         }
       }
 
-      savedItems.value.unshift(item)
+      savedItems.value.unshift(item);
       try {
-        localStorage.setItem('echo_intent_history', JSON.stringify(savedItems.value))
+        localStorage.setItem(
+          "echo_intent_history",
+          JSON.stringify(savedItems.value),
+        );
       } catch (err) {
-        console.error('Failed to persist history to localStorage:', err)
+        console.error("Failed to persist history to localStorage:", err);
       }
-    }
+    };
 
     // Delete handler
     const handleDelete = async (payload) => {
-      const idx = typeof payload === 'number' ? payload : payload.idx
-      const item = typeof payload === 'number' ? savedItems.value[idx] : payload.item
-      savedItems.value.splice(idx, 1)
+      const idx = typeof payload === "number" ? payload : payload.idx;
+      const item =
+        typeof payload === "number" ? savedItems.value[idx] : payload.item;
+      savedItems.value.splice(idx, 1);
       if (isAuthenticated.value && item && item.id) {
-        fetch(`/api/saved/${item.id}`, { method: 'DELETE' }).catch(() => {})
+        fetch(`/api/saved/${item.id}`, { method: "DELETE" }).catch(() => {});
       }
       try {
-        localStorage.setItem('echo_intent_history', JSON.stringify(savedItems.value))
+        localStorage.setItem(
+          "echo_intent_history",
+          JSON.stringify(savedItems.value),
+        );
       } catch (err) {
-        console.error('Failed to update persisted history:', err)
+        console.error("Failed to update persisted history:", err);
       }
-    }
+    };
 
     const handleError = (msg) => {
-      error.value = msg
-    }
+      error.value = msg;
+    };
 
     return {
       activeTab,
@@ -359,9 +464,9 @@ export default {
       handleSave,
       handleDelete,
       handleError,
-    }
-  }
-}
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -423,7 +528,7 @@ export default {
   box-shadow: 0 0 8px var(--accent-blue);
 }
 .logo-text {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   letter-spacing: -0.01em;
 }
 .divider {
@@ -434,7 +539,7 @@ export default {
   color: var(--accent-blue);
   font-weight: 500;
   font-size: 1.25rem;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
 }
 .subtitle {
   color: var(--text-secondary);
@@ -456,7 +561,7 @@ export default {
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-secondary);
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 0.95rem;
   font-weight: 500;
   padding: 0.6rem 1.2rem;
@@ -555,8 +660,12 @@ export default {
 }
 
 @keyframes fillAnim {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(300%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
 }
 
 .footer {
@@ -564,12 +673,11 @@ export default {
   border-top: 1px solid var(--border-color);
   padding-top: 1.5rem;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
   gap: 1rem;
 }
 .footer-links {
+  flex: 0 0 auto;
   display: flex;
   gap: 1.5rem;
 }
@@ -580,9 +688,38 @@ export default {
 .footer-links a:hover {
   color: var(--accent-blue);
 }
+.footer-openaire {
+  flex: 1 1 auto;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: center;
+}
+.footer-openaire a {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+.footer-openaire a:hover {
+  color: var(--accent-blue);
+}
+.footer-legal {
+  text-align: right;
+  flex: 0 0 auto;
+}
 .copyright {
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+.address {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+.cc-by {
+  opacity: 0.5;
+  font-style: italic;
 }
 
 @media (max-width: 640px) {

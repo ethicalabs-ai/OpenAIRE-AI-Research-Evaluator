@@ -1,5 +1,12 @@
 # Quick Start
 
+## Prerequisites
+
+- **Python** ≥ 3.12 (tested with 3.12.3)
+- **Node.js** ≥ 22 (tested with 22.22.3)
+- **npm** ≥ 10 (tested with 10.9.8)
+- **Docker** (optional, for containerised deployment)
+
 ## Docker Compose
 
 ```bash

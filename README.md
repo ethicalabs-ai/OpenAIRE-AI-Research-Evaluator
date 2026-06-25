@@ -6,6 +6,8 @@ A multi-model LLM-as-Judge pipeline that builds annotation datasets to train Ech
 
 ## Quick Start — Docker Compose
 
+**Prerequisites:** Python ≥ 3.12, Node.js ≥ 22, npm ≥ 10, Docker
+
 ```bash
 docker compose up -d
 ```
@@ -153,8 +155,7 @@ print(label, probs)
 
 © 2026 ethicalabs.ai — incubated by dorvan srl
 
-Operational headquarters: Via Privata Farnese 1/3, 20146 Milano (MI), Italy
-
-Registered address: Via Enrico Cernuschi 4, 20129 Milano (MI), Italy
+Operational: Via Privata Farnese 1/3, 20146 Milano (MI)
+Registered: Via Enrico Cernuschi 4, 20129 Milano (MI), Italy
 
 This project uses the [OpenAIRE Graph API](https://graph.openaire.eu) — all materials created by OpenAIRE are licensed under CC BY 4.0.

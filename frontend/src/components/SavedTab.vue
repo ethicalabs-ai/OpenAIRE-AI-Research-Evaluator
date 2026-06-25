@@ -7,43 +7,80 @@
       </div>
       <div class="saved-body">
         <div v-if="items.length === 0" class="empty-history">
-          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="64"
+            height="64"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
           <h3>History is Empty</h3>
-          <p>Classified papers saved from the other tabs will be listed here. All data stays local to your browser.</p>
+          <p>
+            Classified papers saved from the other tabs will be listed here. All
+            data stays local to your browser.
+          </p>
         </div>
         <div v-else class="history-list">
-          <div v-for="(item, idx) in items" :key="item.timestamp" class="history-item">
+          <div
+            v-for="(item, idx) in items"
+            :key="item.timestamp"
+            class="history-item"
+          >
             <div class="item-summary" @click="toggleItem(idx)">
               <div class="item-left">
-                <span class="badge" :class="item.label.toLowerCase()">{{ item.label }}</span>
+                <span class="badge" :class="item.label.toLowerCase()">{{
+                  item.label
+                }}</span>
                 <span class="item-title">{{ item.title }}</span>
               </div>
               <div class="item-right">
                 <span v-if="item.arxivId" class="item-tag">arXiv</span>
-                <span v-else-if="item.openaire" class="item-tag openaire">OpenAIRE</span>
+                <span v-else-if="item.openaire" class="item-tag openaire"
+                  >OpenAIRE</span
+                >
                 <span v-else class="item-tag custom">Text</span>
                 <span class="item-time">{{ formatTime(item.timestamp) }}</span>
-                <button @click.stop="contributeToCollab(idx)" class="contribute-btn" title="Contribute to Collab Hub">
+                <button
+                  @click.stop="contributeToCollab(idx)"
+                  class="contribute-btn"
+                  title="Contribute to Collab Hub"
+                >
                   🗳️
                 </button>
-                <button @click.stop="deleteItem(idx)" class="delete-btn" title="Delete">
+                <button
+                  @click.stop="deleteItem(idx)"
+                  class="delete-btn"
+                  title="Delete"
+                >
                   &times;
                 </button>
               </div>
             </div>
             <div v-if="expanded[idx]" class="item-details">
-              <p class="details-abstract"><strong>Abstract:</strong> {{ item.abstract }}</p>
+              <p class="details-abstract">
+                <strong>Abstract:</strong> {{ item.abstract }}
+              </p>
               <div v-if="item.link" class="details-link">
                 <strong>Link: </strong>
-                <a :href="item.link" target="_blank">{{ item.arxivId || 'Open Publication' }}</a>
+                <a :href="item.link" target="_blank">{{
+                  item.arxivId || "Open Publication"
+                }}</a>
               </div>
               <div class="details-probs">
                 <strong>Softmax Distribution:</strong>
                 <div class="probs-grid">
-                  <div v-for="(prob, name) in item.probabilities" :key="name" class="prob-chip">
+                  <div
+                    v-for="(prob, name) in item.probabilities"
+                    :key="name"
+                    class="prob-chip"
+                  >
                     <span class="chip-name">{{ name }}</span>
                     <span class="chip-val">{{ (prob * 100).toFixed(1) }}%</span>
                   </div>
@@ -58,52 +95,52 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref } from "vue";
 
 export default {
   props: {
     items: {
       type: Array,
       required: true,
-    }
+    },
   },
-  emits: ['delete'],
+  emits: ["delete"],
   setup(props, { emit }) {
-    const expanded = ref({})
+    const expanded = ref({});
 
     const toggleItem = (idx) => {
-      expanded.value[idx] = !expanded.value[idx]
-    }
+      expanded.value[idx] = !expanded.value[idx];
+    };
 
     const deleteItem = (idx) => {
-      emit('delete', { idx, item: props.items[idx] })
-    }
+      emit("delete", { idx, item: props.items[idx] });
+    };
 
     const contributeToCollab = async (idx) => {
-      const item = props.items[idx]
+      const item = props.items[idx];
       const paper = {
         title: item.title,
-        abstract: item.abstract || '',
+        abstract: item.abstract || "",
         label: item.label,
-        doi: item.doi || item.link || '',
-        source: item.openaire ? 'openaire' : 'custom',
-      }
-      localStorage.setItem('echo_pending_collab', JSON.stringify(paper))
+        doi: item.doi || item.link || "",
+        source: item.openaire ? "openaire" : "custom",
+      };
+      localStorage.setItem("echo_pending_collab", JSON.stringify(paper));
 
-      const meRes = await fetch('/api/auth/me').catch(() => null)
-      const meData = meRes ? await meRes.json() : {}
+      const meRes = await fetch("/api/auth/me").catch(() => null);
+      const meData = meRes ? await meRes.json() : {};
       if (meData.authenticated) {
-        window.location.href = '/#collab'
+        window.location.href = "/#collab";
       } else {
-        const loginRes = await fetch('/api/auth/login/hf')
-        const loginData = await loginRes.json()
-        if (loginData.auth_url) window.location.href = loginData.auth_url
+        const loginRes = await fetch("/api/auth/login/hf");
+        const loginData = await loginRes.json();
+        if (loginData.auth_url) window.location.href = loginData.auth_url;
       }
-    }
+    };
 
     const formatTime = (ts) => {
-      return new Date(ts).toLocaleString()
-    }
+      return new Date(ts).toLocaleString();
+    };
 
     return {
       expanded,
@@ -111,9 +148,9 @@ export default {
       deleteItem,
       formatTime,
       contributeToCollab,
-    }
-  }
-}
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -167,18 +204,33 @@ export default {
   min-width: 0;
 }
 .badge {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 0.75rem;
   font-weight: 600;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   text-transform: uppercase;
 }
-.badge.methodology { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-.badge.dataset { background-color: rgba(16, 185, 129, 0.15); color: #34d399; }
-.badge.review { background-color: rgba(139, 92, 246, 0.15); color: #a78bfa; }
-.badge.applied { background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-.badge.theoretical { background-color: rgba(236, 72, 153, 0.15); color: #f472b6; }
+.badge.methodology {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+.badge.dataset {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+.badge.review {
+  background-color: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+.badge.applied {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+.badge.theoretical {
+  background-color: rgba(236, 72, 153, 0.15);
+  color: #f472b6;
+}
 
 .item-title {
   color: var(--text-primary);

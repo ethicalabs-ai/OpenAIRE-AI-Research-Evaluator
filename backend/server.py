@@ -28,6 +28,7 @@ from database import get_db
 from fastapi import Depends, Request, Response
 from intent_classifier import classify_paper, get_classifier, is_loaded
 from sqlalchemy.orm import Session
+from sqlalchemy import func, case
 
 from models import Annotation as DBAnnotation
 from models import PaperRecord
@@ -759,17 +760,30 @@ class ProfileUpdateRequest(BaseModel):
     institution: str = None
 
 
+import json as _json
+from typing import Any, Optional
+
+
+def _serialize_probabilities(probs: Any) -> Optional[str]:
+    """Serialize probabilities to JSON string for DB storage."""
+    if probs is None:
+        return None
+    if isinstance(probs, str):
+        return probs
+    return _json.dumps(probs)
+
+
 class SavePaperRequest(BaseModel):
     title: str
-    abstract: str = None
-    label: str = None
-    probabilities: str = None
-    doi: str = None
-    link: str = None
-    lang: str = None
+    abstract: Optional[str] = None
+    label: Optional[str] = None
+    probabilities: Optional[Any] = None
+    doi: Optional[str] = None
+    link: Optional[str] = None
+    lang: Optional[str] = None
     openaire: bool = False
     source: str = "unknown"
-    timestamp: int = None
+    timestamp: Optional[int] = None
 
 
 # Helper to normalize DOIs
@@ -1019,7 +1033,7 @@ def save_paper(req: SavePaperRequest, request: Request, db: Session = Depends(ge
         title=req.title,
         abstract=req.abstract,
         label=req.label,
-        probabilities=req.probabilities,
+        probabilities=_serialize_probabilities(req.probabilities),
         doi=req.doi,
         link=req.link,
         lang=req.lang,
@@ -1075,7 +1089,7 @@ def sync_saved(
             title=item.title,
             abstract=item.abstract,
             label=item.label,
-            probabilities=item.probabilities,
+            probabilities=_serialize_probabilities(item.probabilities),
             doi=item.doi,
             link=item.link,
             lang=item.lang,
@@ -1098,9 +1112,32 @@ def sync_saved(
 
 # Annotation endpoints
 @app.get("/api/annotations/papers")
-def list_papers(db: Session = Depends(get_db)):
+def list_papers(
+    limit: int = 10,
+    offset: int = 0,
+    sort_by: str = "recent",
+    db: Session = Depends(get_db),
+):
     # Exclude internal evaluation records (source='dataset') from the graph UI
-    papers = db.query(PaperRecord).filter(PaperRecord.source != "dataset").all()
+    base = db.query(PaperRecord).filter(PaperRecord.source != "dataset")
+    total = base.count()
+
+    sort_map = {
+        "recent": PaperRecord.created_at.desc(),
+        "votes": func.count(DBAnnotation.id).desc(),
+        "flagged": func.sum(case((DBAnnotation.is_flagged == True, 1), else_=0)).desc(),  # noqa: E712
+        "title": PaperRecord.title.asc(),
+    }
+    order = sort_map.get(sort_by, PaperRecord.created_at.desc())
+
+    papers = (
+        base.outerjoin(DBAnnotation, PaperRecord.doi == DBAnnotation.paper_doi)
+        .group_by(PaperRecord.doi)
+        .order_by(order)
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
     results = []
     for p in papers:
         votes = [a for a in p.annotations if a.proposed_label]
@@ -1128,7 +1165,7 @@ def list_papers(db: Session = Depends(get_db)):
                 "has_llm": has_llm,
             }
         )
-    return results
+    return {"papers": results, "total": total, "limit": limit, "offset": offset}
 
 
 @app.get("/api/annotations/papers/{doi:path}")

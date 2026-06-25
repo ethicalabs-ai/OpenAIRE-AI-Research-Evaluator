@@ -3,18 +3,31 @@
     <div v-if="isLoadingData" class="init-card">
       <div class="cyber-spinner"></div>
       <h3>Loading Model Specifications...</h3>
-      <p>Fetching active parameter counts and runtime status from the intent classifier backend.</p>
+      <p>
+        Fetching active parameter counts and runtime status from the intent
+        classifier backend.
+      </p>
     </div>
 
     <div v-else-if="errorMsg" class="init-card">
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="64"
+        height="64"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#ef4444"
+        stroke-width="1.5"
+      >
         <circle cx="12" cy="12" r="10"></circle>
         <line x1="12" y1="8" x2="12" y2="12"></line>
         <line x1="12" y1="16" x2="12.01" y2="16"></line>
       </svg>
       <h3>Failed to Load Model Card</h3>
       <p>{{ errorMsg }}</p>
-      <button @click="fetchModelCard" class="btn btn-secondary mt-4">Retry</button>
+      <button @click="fetchModelCard" class="btn btn-secondary mt-4">
+        Retry
+      </button>
     </div>
 
     <div v-else class="panels-grid">
@@ -24,12 +37,16 @@
         <div class="card panel-card spec-card mb-4">
           <div class="card-header">
             <h3>🏗️ Architecture Specifications</h3>
-            <span class="card-badge success">{{ cardData.model_type.toUpperCase() }}-DSRN</span>
+            <span class="card-badge success"
+              >{{ cardData.model_type.toUpperCase() }}-DSRN</span
+            >
           </div>
           <div class="spec-body">
             <div class="spec-row">
               <span class="spec-label">Model Architecture</span>
-              <span class="spec-value">Echo-DSRN (Recurrent Neural Network)</span>
+              <span class="spec-value"
+                >Echo-DSRN (Recurrent Neural Network)</span
+              >
             </div>
             <div class="spec-row">
               <span class="spec-label">Layers (DSRN Blocks)</span>
@@ -45,7 +62,9 @@
             </div>
             <div class="spec-row">
               <span class="spec-label">Vocabulary Size</span>
-              <span class="spec-value">{{ cardData.vocab_size.toLocaleString() }} tokens</span>
+              <span class="spec-value"
+                >{{ cardData.vocab_size.toLocaleString() }} tokens</span
+              >
             </div>
           </div>
         </div>
@@ -54,32 +73,59 @@
         <div class="card panel-card census-card">
           <div class="card-header">
             <h3>📊 Parameter Census</h3>
-            <span class="card-badge">{{ formatNum(cardData.total_params) }} Total</span>
+            <span class="card-badge"
+              >{{ formatNum(cardData.total_params) }} Total</span
+            >
           </div>
           <div class="spec-body">
             <div class="spec-row highlight">
               <span class="spec-label">Total Parameters</span>
-              <span class="spec-value">{{ cardData.total_params.toLocaleString() }}</span>
+              <span class="spec-value">{{
+                cardData.total_params.toLocaleString()
+              }}</span>
             </div>
             <div class="spec-row">
               <span class="spec-label">Embeddings</span>
-              <span class="spec-value">{{ cardData.embedding_params.toLocaleString() }} ({{ (cardData.embedding_params/cardData.total_params*100).toFixed(1) }}%)</span>
+              <span class="spec-value"
+                >{{ cardData.embedding_params.toLocaleString() }} ({{
+                  (
+                    (cardData.embedding_params / cardData.total_params) *
+                    100
+                  ).toFixed(1)
+                }}%)</span
+              >
             </div>
             <div class="spec-row">
               <span class="spec-label">DSRN Blocks (RNN/MLP)</span>
-              <span class="spec-value">{{ cardData.blocks_params.toLocaleString() }} ({{ (cardData.blocks_params/cardData.total_params*100).toFixed(1) }}%)</span>
+              <span class="spec-value"
+                >{{ cardData.blocks_params.toLocaleString() }} ({{
+                  (
+                    (cardData.blocks_params / cardData.total_params) *
+                    100
+                  ).toFixed(1)
+                }}%)</span
+              >
             </div>
             <div class="spec-row">
               <span class="spec-label">Classifier Head</span>
-              <span class="spec-value">{{ cardData.classifier_params.toLocaleString() }} (&lt;0.1%)</span>
+              <span class="spec-value"
+                >{{
+                  cardData.classifier_params.toLocaleString()
+                }}
+                (&lt;0.1%)</span
+              >
             </div>
             <div class="spec-row border-top-glow">
               <span class="spec-label">Trainable Parameters</span>
-              <span class="spec-value text-glow-blue">{{ cardData.trainable_params.toLocaleString() }}</span>
+              <span class="spec-value text-glow-blue">{{
+                cardData.trainable_params.toLocaleString()
+              }}</span>
             </div>
             <div class="spec-row">
               <span class="spec-label">Frozen Parameters</span>
-              <span class="spec-value">{{ cardData.frozen_params.toLocaleString() }}</span>
+              <span class="spec-value">{{
+                cardData.frozen_params.toLocaleString()
+              }}</span>
             </div>
           </div>
         </div>
@@ -96,7 +142,9 @@
           <div class="spec-body">
             <div class="spec-row">
               <span class="spec-label">Execution Device</span>
-              <span class="spec-value device-tag">{{ cardData.device.toUpperCase() }}</span>
+              <span class="spec-value device-tag">{{
+                cardData.device.toUpperCase()
+              }}</span>
             </div>
             <div class="spec-row">
               <span class="spec-label">Tensor Precision</span>
@@ -104,11 +152,25 @@
             </div>
             <div class="spec-row">
               <span class="spec-label">Estimated Memory Footprint</span>
-              <span class="spec-value">{{ (cardData.total_params * (cardData.dtype === 'bfloat16' || cardData.dtype === 'float16' ? 2 : 4) / (1024 * 1024)).toFixed(1) }} MB</span>
+              <span class="spec-value"
+                >{{
+                  (
+                    (cardData.total_params *
+                      (cardData.dtype === "bfloat16" ||
+                      cardData.dtype === "float16"
+                        ? 2
+                        : 4)) /
+                    (1024 * 1024)
+                  ).toFixed(1)
+                }}
+                MB</span
+              >
             </div>
             <div class="spec-row">
               <span class="spec-label">Local Checkpoint Path</span>
-              <span class="spec-value path-text" :title="cardData.model_path">{{ cardData.model_path }}</span>
+              <span class="spec-value path-text" :title="cardData.model_path">{{
+                cardData.model_path
+              }}</span>
             </div>
           </div>
         </div>
@@ -118,8 +180,12 @@
           <div class="card-header">
             <h3>💻 Model Consumption Code</h3>
             <div class="header-right">
-              <a href="https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF"
-                 target="_blank" class="hf-link" title="Gated — request access">
+              <a
+                href="https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF"
+                target="_blank"
+                class="hf-link"
+                title="Gated — request access"
+              >
                 🤗 HF Repo
               </a>
               <span class="card-badge">Python</span>
@@ -158,40 +224,42 @@ print(<span class="string">f"Intent: {label}"</span>)</code></pre>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted } from "vue";
 
 export default {
   setup() {
-    const cardData = ref(null)
-    const isLoadingData = ref(true)
-    const errorMsg = ref('')
+    const cardData = ref(null);
+    const isLoadingData = ref(true);
+    const errorMsg = ref("");
 
     const formatNum = (num) => {
-      if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`
-      if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`
-      return num.toLocaleString()
-    }
+      if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
+      if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+      return num.toLocaleString();
+    };
 
     const fetchModelCard = async () => {
-      isLoadingData.value = true
-      errorMsg.value = ''
+      isLoadingData.value = true;
+      errorMsg.value = "";
       try {
-        const res = await fetch('/api/model/card')
+        const res = await fetch("/api/model/card");
         if (!res.ok) {
-          const detail = await res.json().catch(() => ({}))
-          throw new Error(detail.detail || `HTTP Error ${res.status}`)
+          const detail = await res.json().catch(() => ({}));
+          throw new Error(detail.detail || `HTTP Error ${res.status}`);
         }
-        cardData.value = await res.json()
+        cardData.value = await res.json();
       } catch (err) {
-        errorMsg.value = err.message || 'Failed to connect to the backend specifications endpoint.'
+        errorMsg.value =
+          err.message ||
+          "Failed to connect to the backend specifications endpoint.";
       } finally {
-        isLoadingData.value = false
+        isLoadingData.value = false;
       }
-    }
+    };
 
     onMounted(() => {
-      fetchModelCard()
-    })
+      fetchModelCard();
+    });
 
     return {
       cardData,
@@ -199,13 +267,14 @@ export default {
       errorMsg,
       fetchModelCard,
       formatNum,
-    }
-  }
-}
+    };
+  },
+};
 </script>
 
 <style scoped>
-.left-col, .right-col {
+.left-col,
+.right-col {
   display: flex;
   flex-direction: column;
 }
@@ -277,7 +346,7 @@ export default {
 .code-body {
   padding: 1.5rem;
   background-color: rgba(0, 0, 0, 0.2);
-  font-family: 'Space Grotesk', monospace;
+  font-family: "Space Grotesk", monospace;
   font-size: 0.85rem;
   line-height: 1.5;
   overflow-x: auto;
@@ -287,10 +356,20 @@ export default {
 pre {
   margin: 0;
 }
-.keyword { color: #f472b6; font-weight: 600; }
-.string { color: #34d399; }
-.comment { color: var(--text-muted); font-style: italic; }
-.boolean { color: #fbbf24; }
+.keyword {
+  color: #f472b6;
+  font-weight: 600;
+}
+.string {
+  color: #34d399;
+}
+.comment {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.boolean {
+  color: #fbbf24;
+}
 .header-right {
   display: flex;
   align-items: center;

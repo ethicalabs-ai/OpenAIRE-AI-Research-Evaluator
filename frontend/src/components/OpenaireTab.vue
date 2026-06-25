@@ -19,7 +19,8 @@
                 Lang: {{ lang.toUpperCase() }}
               </span>
               <span v-if="authors && authors.length" class="authors">
-                by {{ authors.slice(0, 3).join(', ') }}{{ authors.length > 3 ? ' et al.' : '' }}
+                by {{ authors.slice(0, 3).join(", ")
+                }}{{ authors.length > 3 ? " et al." : "" }}
               </span>
             </div>
             <div class="abstract-box">
@@ -28,13 +29,28 @@
             </div>
           </div>
           <div v-else class="empty-openaire">
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="64"
+              height="64"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+              ></path>
               <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
               <line x1="12" y1="22.08" x2="12" y2="12"></line>
             </svg>
             <h3>No Paper Loaded</h3>
-            <p>Click below to pull a random computer science or machine learning publication from the OpenAIRE Graph API.</p>
+            <p>
+              Click below to pull a random computer science or machine learning
+              publication from the OpenAIRE Graph API.
+            </p>
           </div>
         </div>
         <div class="card-footer">
@@ -72,7 +88,11 @@
               <span class="primary-label">{{ result.label }}</span>
             </div>
             <div class="prob-list">
-              <div v-for="(prob, name) in result.probabilities" :key="name" class="prob-row">
+              <div
+                v-for="(prob, name) in result.probabilities"
+                :key="name"
+                class="prob-row"
+              >
                 <div class="prob-labels">
                   <span class="prob-name">{{ name }}</span>
                   <span class="prob-val">{{ (prob * 100).toFixed(1) }}%</span>
@@ -88,15 +108,29 @@
             </div>
             <div class="save-box">
               <button @click="saveResult" class="btn btn-secondary save-btn">
-                {{ isSaved ? '✓ Saved' : 'Save to History' }}
+                {{ isSaved ? "✓ Saved" : "Save to History" }}
               </button>
-              <button @click="contributeToCollab" class="btn btn-accent save-btn" :disabled="!result">
+              <button
+                @click="contributeToCollab"
+                class="btn btn-accent save-btn"
+                :disabled="!result"
+              >
                 🗳️ Contribute to Collab Hub
               </button>
             </div>
           </div>
           <div v-else class="empty-output">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
               <polyline points="22 4 12 14.01 9 11.01"></polyline>
             </svg>
@@ -109,66 +143,66 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref } from "vue";
 
 export default {
   props: {
     isLoading: Boolean,
   },
-  emits: ['classify', 'save', 'error'],
+  emits: ["classify", "save", "error"],
   setup(props, { emit }) {
-    const title = ref('')
-    const abstract = ref('')
-    const authors = ref([])
-    const category = ref('')
-    const link = ref('')
-    const lang = ref('')
-    const result = ref(null)
-    const isFetching = ref(false)
-    const isSaved = ref(false)
+    const title = ref("");
+    const abstract = ref("");
+    const authors = ref([]);
+    const category = ref("");
+    const link = ref("");
+    const lang = ref("");
+    const result = ref(null);
+    const isFetching = ref(false);
+    const isSaved = ref(false);
 
     const fetchRandomPaper = async () => {
-      isFetching.value = true
-      result.value = null
-      isSaved.value = false
-      title.value = ''
-      abstract.value = ''
-      authors.value = []
-      category.value = ''
-      link.value = ''
-      lang.value = ''
+      isFetching.value = true;
+      result.value = null;
+      isSaved.value = false;
+      title.value = "";
+      abstract.value = "";
+      authors.value = [];
+      category.value = "";
+      link.value = "";
+      lang.value = "";
       try {
-        const res = await fetch('/api/openaire/random')
-        if (!res.ok) throw new Error(`HTTP error ${res.status}`)
-        const data = await res.json()
-        title.value = data.title
-        abstract.value = data.abstract
-        authors.value = data.authors
-        category.value = data.category
-        link.value = data.link
-        lang.value = data.lang
+        const res = await fetch("/api/openaire/random");
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        const data = await res.json();
+        title.value = data.title;
+        abstract.value = data.abstract;
+        authors.value = data.authors;
+        category.value = data.category;
+        link.value = data.link;
+        lang.value = data.lang;
       } catch (err) {
-        emit('error', `Failed to fetch from OpenAIRE: ${err.message}`)
+        emit("error", `Failed to fetch from OpenAIRE: ${err.message}`);
       } finally {
-        isFetching.value = false
+        isFetching.value = false;
       }
-    }
+    };
 
     const classify = async () => {
-      if (!title.value || !abstract.value) return
-      emit('classify', {
+      if (!title.value || !abstract.value) return;
+      emit("classify", {
         title: title.value,
         abstract: abstract.value,
         callback: (res) => {
-          result.value = res
-          isSaved.value = false
-        }
-      })
-    }
+          result.value = res;
+          isSaved.value = false;
+        },
+      });
+    };
 
     const saveResult = () => {
-      if (!result.value || isSaved.value) return
-      emit('save', {
+      if (!result.value || isSaved.value) return;
+      emit("save", {
         title: title.value,
         abstract: abstract.value,
         label: result.value.label,
@@ -177,31 +211,31 @@ export default {
         lang: lang.value,
         openaire: true,
         timestamp: Date.now(),
-      })
-      isSaved.value = true
-    }
+      });
+      isSaved.value = true;
+    };
 
     const contributeToCollab = async () => {
-      if (!result.value) return
+      if (!result.value) return;
       const paper = {
         title: title.value,
         abstract: abstract.value,
         label: result.value.label,
-        doi: link.value ? link.value.split('/').pop() || '' : '',
-        source: 'openaire',
-      }
-      localStorage.setItem('echo_pending_collab', JSON.stringify(paper))
+        doi: link.value ? link.value.split("/").pop() || "" : "",
+        source: "openaire",
+      };
+      localStorage.setItem("echo_pending_collab", JSON.stringify(paper));
 
-      const meRes = await fetch('/api/auth/me').catch(() => null)
-      const meData = meRes ? await meRes.json() : {}
+      const meRes = await fetch("/api/auth/me").catch(() => null);
+      const meData = meRes ? await meRes.json() : {};
       if (meData.authenticated) {
-        window.location.href = '/#collab'
+        window.location.href = "/#collab";
       } else {
-        const loginRes = await fetch('/api/auth/login/hf')
-        const loginData = await loginRes.json()
-        if (loginData.auth_url) window.location.href = loginData.auth_url
+        const loginRes = await fetch("/api/auth/login/hf");
+        const loginData = await loginRes.json();
+        if (loginData.auth_url) window.location.href = loginData.auth_url;
       }
-    }
+    };
 
     return {
       title,
@@ -217,9 +251,9 @@ export default {
       classify,
       saveResult,
       contributeToCollab,
-    }
-  }
-}
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -310,7 +344,7 @@ export default {
   font-size: 2rem;
   font-weight: 700;
   color: var(--accent-blue);
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
 }
 .prob-list {
   display: flex;

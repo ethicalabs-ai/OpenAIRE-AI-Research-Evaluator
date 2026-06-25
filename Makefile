@@ -20,6 +20,9 @@ install: ## Install Python and frontend dependencies
 build-ui: ## Build the Vue.js frontend for production
 	cd frontend && npm run build
 
+build-ui-deploy: ## Build frontend and hot-deploy into running web container
+	cd frontend && npm run build && docker cp dist/. echo_dsrn_graph_web:/app/frontend/dist/ && docker restart echo_dsrn_graph_web
+
 build-docker: ## Build the Docker image (set HF_TOKEN in .env for gated model access)
 	docker compose build
 
@@ -45,6 +48,9 @@ lint: ## Run all pre-commit hooks
 
 lint-fix: ## Run Ruff linter with auto-fix
 	uv run ruff check --fix .
+
+lint-ui: ## Run Prettier on frontend source
+	cd frontend && npx --yes prettier --write "src/**/*.{vue,js,css}"
 
 ## --- Test ---
 

@@ -32,13 +32,19 @@
         <div class="card-footer">
           <span class="char-count">{{ abstract.length }} chars</span>
           <div class="actions">
-            <button @click="clearForm" class="btn btn-secondary" :disabled="isLoading || (!title && !abstract)">
+            <button
+              @click="clearForm"
+              class="btn btn-secondary"
+              :disabled="isLoading || (!title && !abstract)"
+            >
               Clear
             </button>
             <button
               @click="classify"
               class="btn btn-primary"
-              :disabled="isLoading || !title.trim() || abstract.trim().length < 50"
+              :disabled="
+                isLoading || !title.trim() || abstract.trim().length < 50
+              "
             >
               <span v-if="isLoading" class="small-spinner"></span>
               <span v-else>Classify Intent</span>
@@ -61,7 +67,11 @@
               <span class="primary-label">{{ result.label }}</span>
             </div>
             <div class="prob-list">
-              <div v-for="(prob, name) in result.probabilities" :key="name" class="prob-row">
+              <div
+                v-for="(prob, name) in result.probabilities"
+                :key="name"
+                class="prob-row"
+              >
                 <div class="prob-labels">
                   <span class="prob-name">{{ name }}</span>
                   <span class="prob-val">{{ (prob * 100).toFixed(1) }}%</span>
@@ -77,12 +87,22 @@
             </div>
             <div class="save-box">
               <button @click="saveResult" class="btn btn-secondary save-btn">
-                {{ isSaved ? '✓ Saved' : 'Save to History' }}
+                {{ isSaved ? "✓ Saved" : "Save to History" }}
               </button>
             </div>
           </div>
           <div v-else class="empty-output">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
               <polyline points="22 4 12 14.01 9 11.01"></polyline>
             </svg>
@@ -95,52 +115,52 @@
 </template>
 
 <script>
-import { ref, watch } from 'vue'
+import { ref, watch } from "vue";
 
 export default {
   props: {
     isLoading: Boolean,
   },
-  emits: ['classify', 'save'],
+  emits: ["classify", "save"],
   setup(props, { emit }) {
-    const title = ref('')
-    const abstract = ref('')
-    const result = ref(null)
-    const isSaved = ref(false)
+    const title = ref("");
+    const abstract = ref("");
+    const result = ref(null);
+    const isSaved = ref(false);
 
     watch([title, abstract], () => {
-      isSaved.value = false
-    })
+      isSaved.value = false;
+    });
 
     const clearForm = () => {
-      title.value = ''
-      abstract.value = ''
-      result.value = null
-      isSaved.value = false
-    }
+      title.value = "";
+      abstract.value = "";
+      result.value = null;
+      isSaved.value = false;
+    };
 
     const classify = async () => {
-      emit('classify', {
+      emit("classify", {
         title: title.value,
         abstract: abstract.value,
         callback: (res) => {
-          result.value = res
-          isSaved.value = false
-        }
-      })
-    }
+          result.value = res;
+          isSaved.value = false;
+        },
+      });
+    };
 
     const saveResult = () => {
-      if (!result.value || isSaved.value) return
-      emit('save', {
+      if (!result.value || isSaved.value) return;
+      emit("save", {
         title: title.value,
         abstract: abstract.value,
         label: result.value.label,
         probabilities: result.value.probabilities,
         timestamp: Date.now(),
-      })
-      isSaved.value = true
-    }
+      });
+      isSaved.value = true;
+    };
 
     return {
       title,
@@ -150,9 +170,9 @@ export default {
       clearForm,
       classify,
       saveResult,
-    }
-  }
-}
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -169,7 +189,7 @@ export default {
   gap: 0.5rem;
 }
 .form-group label {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 0.85rem;
   color: var(--text-secondary);
   font-weight: 500;
@@ -229,7 +249,7 @@ export default {
   font-size: 2rem;
   font-weight: 700;
   color: var(--accent-blue);
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
 }
 .prob-list {
   display: flex;

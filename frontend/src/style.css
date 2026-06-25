@@ -22,7 +22,7 @@
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Outfit', sans-serif;
+  font-family: "Outfit", sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -44,8 +44,12 @@ body {
   background: var(--accent-blue);
 }
 
-h1, h2, h3, h4, h5 {
-  font-family: 'Space Grotesk', sans-serif;
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: "Space Grotesk", sans-serif;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
@@ -167,7 +171,9 @@ a:hover {
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
 }
-.char-count, .status-msg, .security-stamp {
+.char-count,
+.status-msg,
+.security-stamp {
   font-size: 0.85rem;
   color: var(--text-muted);
 }
@@ -185,7 +191,7 @@ a:hover {
 
 /* Interactive Buttons */
 .btn {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 0.9rem;
   font-weight: 500;
   padding: 0.55rem 1.25rem;
@@ -253,6 +259,10 @@ a:hover {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
