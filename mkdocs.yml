@@ -10,6 +10,7 @@ nav:
   - Quick Start: quickstart.md
   - Architecture: architecture.md
   - LLM-as-Judge: llm-as-judge.md
+  - MCP: mcp.md
   - Inference: inference.md
   - Hackathon Story: story.md
   - License: license.md

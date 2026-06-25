@@ -25,7 +25,7 @@ from auth_utils import (
 from celery_app import celery_app
 from config import EXPORT_ENABLED
 from database import get_db
-from fastapi import Depends, Request, Response
+from fastapi import Depends, Request, Response, Header
 from intent_classifier import classify_paper, get_classifier, is_loaded
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
@@ -1404,7 +1404,7 @@ def _sse_event(event: str, data: dict | str) -> str:
 async def mcp_classify(
     title: str,
     abstract: str,
-    api_key: str,
+    authorization: str = Header(default=""),
 ):
     """
     MCP SSE endpoint — classify a paper and stream the result.
@@ -1412,9 +1412,11 @@ async def mcp_classify(
     Query params:
       - title: paper title
       - abstract: paper abstract
-      - api_key: global MCP API key (from config.py / .env)
+
+    Auth: Bearer token via Authorization header.
     """
-    if api_key != MCP_API_KEY:
+    token = authorization.removeprefix("Bearer ").strip()
+    if token != MCP_API_KEY:
         return JSONResponse(
             {"error": "invalid api_key"}, status_code=401
         )
