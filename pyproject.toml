@@ -1,0 +1,4 @@
+[tool.ruff.lint]
+ignore = [
+    "E712",  # Avoid auto-fixing comparison to True/False (needed for SQLAlchemy boolean filters)
+]

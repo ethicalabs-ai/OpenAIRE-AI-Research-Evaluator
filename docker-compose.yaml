@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: echo_dsrn_graph_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - HF_TOKEN=${HF_TOKEN:-}
+    container_name: echo_dsrn_graph_web
+    ports:
+      - "0.0.0.0:7860:7860"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PORT=7860
+    depends_on:
+      - redis
+    volumes:
+      - ./data:/app/data
+      - hf_cache:/root/.cache/huggingface
+    restart: unless-stopped
+
+  worker-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - HF_TOKEN=${HF_TOKEN:-}
+    container_name: echo_dsrn_graph_worker_cpu
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - SERVICE_TYPE=worker-cpu
+      - CONCURRENCY=2
+    depends_on:
+      - redis
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+volumes:
+  hf_cache:

@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.env
+venv
+.qwen
+.antigravitycli
+
+# Data and Checkpoints
+./data/
+checkpoints/
+*.bin
+*.pth
+
+# WandB
+wandb/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+.build
+
+# Lint & test caches
+.ruff_cache/
+.pytest_cache/
+
+# Training outputs
+outputs/
+results/
+results_2B/
+tmp_dry_run/
+
+# Misc
+temp/
+experiments/
+*.log
+*.egg-info/
+
+# Generated reports
+backend/judge_report.md
+
+# Excluded for now
+.coverage
+datasets/
+models/
+logs/
+scratch/
+hf_scratch/
+hf_scripts/
+hf_benchmarks/
+echo_dsrn/
+echo_hybrid/
+data/uploads/

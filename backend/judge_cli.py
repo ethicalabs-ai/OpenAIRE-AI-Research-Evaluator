@@ -1,0 +1,719 @@
+#!/usr/bin/env python3
+"""
+judge_cli.py  —  LLM-as-Judge batch runner
+═══════════════════════════════════════════
+Iterates over papers from arXiv or OpenAIRE, classifies each with the
+Echo-DSRN intent model, then passes the result to the LLM judge.
+Verdicts are saved as LLM annotations in the collaborative database.
+
+Usage examples
+──────────────
+# Judge 50 papers from arXiv using the default model
+uv run python backend/judge_cli.py --source arxiv --n 50
+
+# Judge OpenAIRE papers with a specific model and custom rate limit
+uv run python backend/judge_cli.py --source openaire --n 100 \\
+    --model Qwen3.5-35B-A3B-GGUF --delay 2.5
+
+# Dry-run: classify + judge but skip DB write
+uv run python backend/judge_cli.py --source arxiv --n 10 --dry-run
+"""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+import time
+import uuid
+import xml.etree.ElementTree as ET  # noqa: E402
+from pathlib import Path
+
+import requests  # noqa: E402
+from config import LLM_JUDGE_DEFAULT_MODEL  # noqa: E402
+from database import SessionLocal  # noqa: E402
+from intent_classifier import classify_paper  # noqa: E402
+from llm_judge import JudgeVerdict, judge_paper  # noqa: E402
+
+from models import Annotation as DBAnnotation  # noqa: E402
+from models import PaperRecord
+
+# ── Path setup ────────────────────────────────────────────────────────────────
+_BACKEND_DIR = Path(__file__).parent
+sys.path.insert(0, str(_BACKEND_DIR))
+
+# Load .env before anything else
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(_BACKEND_DIR.parent / ".env", override=False)
+except ImportError:
+    pass
+
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("judge_cli")
+
+# ── Constants ─────────────────────────────────────────────────────────────────
+ARXIV_NS = "http://www.w3.org/2005/Atom"
+ARXIV_API = "https://export.arxiv.org/api/query"
+OPENAIRE_API = "https://api.openaire.eu/search/publications"
+
+# Research keywords used to pull diverse papers from external sources
+SEARCH_QUERIES = [
+    # ── Machine Learning & AI ──────────────────────────────────────────────────
+    "machine learning methodology",
+    "deep learning dataset benchmark",
+    "systematic review natural language processing",
+    "applied neural networks medical imaging",
+    "theoretical convergence bounds optimization",
+    "transformer architecture pretraining",
+    "federated learning privacy",
+    "graph neural network knowledge graph",
+    "reinforcement learning policy gradient",
+    "diffusion model generative",
+    "large language model alignment",
+    "computer vision object detection",
+    "speech recognition audio",
+    "recommendation system collaborative filtering",
+    "anomaly detection time series",
+    "self-supervised representation learning",
+    "multi-modal vision language model",
+    "neural architecture search automl",
+    "continual learning catastrophic forgetting",
+    "uncertainty quantification Bayesian deep learning",
+    # ── Physics ────────────────────────────────────────────────────────────────
+    "quantum computing error correction",
+    "quantum machine learning variational circuits",
+    "particle physics simulation detector",
+    "condensed matter topological phases",
+    "plasma physics fusion energy",
+    "gravitational wave detection signal processing",
+    "cosmological simulation dark matter",
+    "photonics optical neural network",
+    "fluid dynamics turbulence numerical methods",
+    "statistical mechanics phase transition",
+    # ── Biology & Life Sciences ────────────────────────────────────────────────
+    "genomics single cell sequencing benchmark",
+    "protein structure prediction AlphaFold",
+    "CRISPR gene editing methodology",
+    "systems biology metabolic network",
+    "evolutionary biology phylogenetics",
+    "ecology biodiversity species dataset",
+    "neuroscience brain connectivity fMRI",
+    "epigenetics chromatin regulation",
+    "synthetic biology genetic circuit",
+    "microbiome metagenomics analysis",
+    # ── Chemistry & Materials ──────────────────────────────────────────────────
+    "molecular dynamics simulation force field",
+    "drug discovery molecule generation",
+    "materials science machine learning property prediction",
+    "catalysis reaction mechanism computational",
+    "polymer chemistry synthesis dataset",
+    "battery materials electrochemistry",
+    "crystal structure prediction generative",
+    "quantum chemistry density functional theory",
+    "chemical reaction network thermodynamics",
+    "nanomaterials characterization benchmark",
+    # ── Medicine & Clinical Science ────────────────────────────────────────────
+    "clinical trial randomized controlled methodology",
+    "electronic health records natural language processing",
+    "radiology CT MRI deep learning diagnosis",
+    "pathology whole slide image segmentation",
+    "epidemiology infectious disease modeling",
+    "pharmacokinetics drug dosing prediction",
+    "wearable sensor health monitoring dataset",
+    "surgical robotics simulation",
+    "mental health digital phenotyping",
+    "cancer genomics survival prediction",
+    # ── Earth, Climate & Environment ───────────────────────────────────────────
+    "climate change projection model",
+    "remote sensing satellite imagery dataset",
+    "weather forecasting neural network",
+    "ocean temperature salinity dataset",
+    "wildfire prediction risk mapping",
+    "carbon capture sequestration methodology",
+    "earthquake seismology signal processing",
+    "air quality pollution monitoring sensor",
+    "biodiversity conservation land use",
+    "glacier ice sheet melting dataset",
+    # ── Mathematics & Statistics ───────────────────────────────────────────────
+    "causal inference observational study methodology",
+    "topological data analysis persistent homology",
+    "stochastic differential equations sampling",
+    "graph theory combinatorial optimization",
+    "numerical linear algebra scalable algorithm",
+    "Bayesian statistics posterior inference",
+    "information theory data compression",
+    "optimal transport distribution distance",
+    "differential geometry manifold learning",
+    "compressed sensing sparse recovery",
+    # ── Astronomy & Space Science ──────────────────────────────────────────────
+    "exoplanet detection transit survey dataset",
+    "radio telescope survey catalog",
+    "stellar population spectroscopy benchmark",
+    "galactic dynamics N-body simulation",
+    "solar physics corona magnetic field",
+    "supernova remnant interstellar medium observation",
+    "black hole accretion disk X-ray binary",
+    "cosmic microwave background power spectrum",
+    "galaxy morphology classification deep learning",
+    "asteroid orbit determination survey",
+]
+
+
+# ── Paper fetchers ─────────────────────────────────────────────────────────────
+
+
+def fetch_arxiv(query: str, max_results: int = 25) -> list[dict]:
+    """Fetch papers from arXiv API."""
+    try:
+        r = requests.get(
+            ARXIV_API,
+            params={
+                "search_query": f"ti:{query} OR abs:{query}",
+                "max_results": max_results,
+                "sortBy": "relevance",
+            },
+            timeout=15,
+        )
+        r.raise_for_status()
+    except Exception as e:
+        log.warning(f"arXiv fetch failed for '{query}': {e}")
+        return []
+
+    papers = []
+    try:
+        root = ET.fromstring(r.content)
+        for entry in root.findall(f"{{{ARXIV_NS}}}entry"):
+            title = (
+                (entry.findtext(f"{{{ARXIV_NS}}}title") or "")
+                .strip()
+                .replace("\n", " ")
+            )
+            abstract = (
+                (entry.findtext(f"{{{ARXIV_NS}}}summary") or "")
+                .strip()
+                .replace("\n", " ")
+            )
+            link = next(
+                (
+                    lnk.get("href", "")
+                    for lnk in entry.findall(f"{{{ARXIV_NS}}}link")
+                    if lnk.get("rel") == "alternate"
+                ),
+                "",
+            )
+            arxiv_id = link.split("/abs/")[-1] if "/abs/" in link else ""
+            doi = (
+                f"10.48550/arXiv.{arxiv_id}"
+                if arxiv_id
+                else f"arxiv-{uuid.uuid4().hex[:8]}"
+            )
+            if title and abstract:
+                papers.append(
+                    {
+                        "doi": doi,
+                        "title": title,
+                        "abstract": abstract,
+                        "source": "arxiv",
+                    }
+                )
+    except Exception as e:
+        log.warning(f"arXiv parse error: {e}")
+    return papers
+
+
+def fetch_openaire(query: str, max_results: int = 25) -> list[dict]:
+    """Fetch papers from OpenAIRE API."""
+    import re
+
+    try:
+        r = requests.get(
+            OPENAIRE_API,
+            params={"title": query, "format": "json", "page": 1, "size": max_results},
+            timeout=20,
+        )
+        r.raise_for_status()
+    except Exception as e:
+        log.warning(f"OpenAIRE fetch failed for '{query}': {e}")
+        return []
+
+    papers = []
+    try:
+        results_raw = (
+            r.json().get("response", {}).get("results", {}).get("result", []) or []
+        )
+        if isinstance(results_raw, dict):
+            results_raw = [results_raw]
+        for res in results_raw:
+            meta = res.get("metadata", {}).get("oaf:entity", {}).get("oaf:result", {})
+            title_obj = meta.get("title", {})
+            title = (
+                title_obj[0].get("$", "")
+                if isinstance(title_obj, list)
+                else title_obj.get("$", "")
+            ).strip()
+            if not title:
+                continue
+            desc_obj = meta.get("description", "")
+            if isinstance(desc_obj, list):
+                abstract = desc_obj[0].get("$", "") if desc_obj else ""
+            elif isinstance(desc_obj, dict):
+                abstract = desc_obj.get("$", "")
+            else:
+                abstract = str(desc_obj)
+            abstract = re.sub(r"<[^>]+>", "", abstract).strip().replace("\n", " ")
+            if not abstract:
+                continue
+            # Extract DOI
+            doi = None
+            pid = meta.get("pid", [])
+            if not isinstance(pid, list):
+                pid = [pid]
+            for p in pid:
+                if isinstance(p, dict) and p.get("@classid") == "doi":
+                    doi = p.get("$", "").strip().removeprefix("https://doi.org/")
+            if not doi:
+                oa_id = res.get("header", {}).get("dri:objIdentifier", {}).get("$", "")
+                doi = (
+                    f"openaire-{oa_id}" if oa_id else f"openaire-{uuid.uuid4().hex[:8]}"
+                )
+            papers.append(
+                {"doi": doi, "title": title, "abstract": abstract, "source": "openaire"}
+            )
+    except Exception as e:
+        log.warning(f"OpenAIRE parse error: {e}")
+    return papers
+
+
+# ── Core logic ─────────────────────────────────────────────────────────────────
+
+
+def process_paper(
+    paper: dict,
+    model: str,
+    dry_run: bool,
+    db,
+) -> bool:
+    """Classify + judge a single paper. Returns True if an annotation was saved."""
+    doi = paper["doi"].strip().lower().removeprefix("https://doi.org/")
+    title = paper["title"]
+    abstract = paper["abstract"]
+
+    # ── 1. Skip if already judged by this LLM model ──────────────────────────
+    existing = (
+        db.query(DBAnnotation)
+        .filter(DBAnnotation.paper_doi == doi, DBAnnotation.llm_model == model)
+        .first()
+    )
+    if existing:
+        return False
+
+    # ── 2. Ensure paper record exists ────────────────────────────────────────
+    p = db.query(PaperRecord).filter(PaperRecord.doi == doi).first()
+    if not p:
+        # For dataset source the label comes from the file (ground truth);
+        # for live sources we run Echo classification.
+        initial_intent = (
+            paper.get("initial_intent") or classify_paper(title, abstract).label
+        )
+        p = PaperRecord(
+            doi=doi,
+            title=title,
+            abstract=abstract,
+            initial_intent=initial_intent,
+            source=paper.get("source", "arxiv"),
+        )
+        if not dry_run:
+            db.add(p)
+            try:
+                db.flush()
+            except Exception:
+                # Another concurrent session inserted the same DOI first.
+                # Roll back the failed insert and re-fetch the existing record.
+                db.rollback()
+                p = db.query(PaperRecord).filter(PaperRecord.doi == doi).first()
+                if p is None:
+                    log.warning(
+                        f"  ⚠ Could not resolve DOI conflict for {doi} — skipping"
+                    )
+                    return False
+                initial_intent = p.initial_intent or "Methodology"
+        log.info(f"  📄 New paper: {doi[:60]}  →  {initial_intent}")
+    else:
+        initial_intent = p.initial_intent or "Methodology"
+        log.info(f"  📄 Existing: {doi[:60]}  →  {initial_intent}")
+
+    # ── 3. Call LLM judge ────────────────────────────────────────────────────
+    try:
+        verdict: JudgeVerdict = judge_paper(
+            title, abstract, initial_intent, model=model
+        )
+    except Exception as e:
+        log.error(f"  ❌ LLM judge error for {doi}: {e}")
+        return False
+
+    log.info(
+        f"  🤖 Verdict: valid={verdict.label_valid}  "
+        f"label={verdict.proposed_label}  "
+        f"flagged={verdict.is_flagged}  "
+        f"conf={verdict.confidence}"
+    )
+
+    if dry_run:
+        return True
+
+    # ── 4. Persist annotation ─────────────────────────────────────────────────
+    annotation = DBAnnotation(
+        paper_doi=doi,
+        user_id=None,
+        llm_model=model,
+        annotator_type="llm",
+        proposed_label=verdict.proposed_label,
+        is_flagged=verdict.is_flagged,
+        flag_reason=verdict.flag_reason,
+        comment=f"[{verdict.confidence.upper()} confidence] {verdict.rationale}",
+    )
+    db.add(annotation)
+    db.commit()
+    return True
+
+
+def load_dataset_file(path: str) -> list[dict]:
+    """Load a JSONL dataset file for evaluation mode.
+
+    Each line must have: title, abstract, label (ground-truth), doi (optional).
+    The ground-truth label is stored as initial_intent — Echo classification is
+    skipped entirely.  Source is fixed to 'dataset' so the frontend hides it.
+    """
+    import json as _json
+    import uuid as _uuid
+
+    records: list[dict] = []
+    with open(path) as f:
+        for i, line in enumerate(f):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = _json.loads(line)
+            except Exception as e:
+                log.warning(f"  dataset line {i}: parse error — {e}")
+                continue
+            title = (obj.get("title") or "").strip()
+            abstract = (obj.get("abstract") or "").strip()
+            label = (obj.get("label") or "").strip()
+            if not title or not abstract or not label:
+                log.warning(
+                    f"  dataset line {i}: missing title/abstract/label — skipping"
+                )
+                continue
+            doi = (obj.get("doi") or "").strip() or f"dataset-{_uuid.uuid4().hex[:12]}"
+            records.append(
+                {
+                    "doi": doi,
+                    "title": title,
+                    "abstract": abstract,
+                    "initial_intent": label,  # ground-truth — skip Echo inference
+                    "source": "dataset",  # hidden from frontend
+                }
+            )
+    log.info(f"Dataset file: {len(records)} records loaded from {path}")
+    return records
+
+
+def run(args: argparse.Namespace) -> None:
+    import random
+
+    import llm_judge as _lj
+    from database import engine as _engine
+    from sqlalchemy import event
+
+    # Override LLM endpoint if provided via CLI
+    if args.llm_url:
+        _lj.LLM_BASE_URL = args.llm_url  # type: ignore[attr-defined]
+        log.info(f"LLM URL   : {args.llm_url}  (CLI override)")
+    if args.llm_key:
+        _lj.LLM_API_KEY = args.llm_key  # type: ignore[attr-defined]
+        log.info("LLM key   : *** (CLI override)")
+
+    # Enable WAL journal mode so multiple CLI sessions can run concurrently
+    # without hitting "database is locked" errors.
+    @event.listens_for(_engine, "connect")
+    def _set_wal(dbapi_conn, _rec):
+        try:
+            dbapi_conn.execute("PRAGMA journal_mode=WAL")
+        except Exception:
+            pass  # non-SQLite backends ignore this
+
+    model = args.model
+    mode = "ASYNC (Celery)" if getattr(args, "async_mode", False) else "SYNC"
+
+    log.info("═══ LLM-as-Judge CLI ═══")
+    log.info(f"Mode   : {mode}")
+    log.info(f"Source : {args.source}")
+    log.info(f"Target : {args.n} annotations")
+    log.info(f"Model  : {model}")
+    log.info(f"Delay  : {args.delay}s between dispatches")
+    if not getattr(args, "async_mode", False):
+        log.info(f"Dry-run: {args.dry_run}")
+
+    if getattr(args, "async_mode", False):
+        # ── Async mode: dispatch Celery tasks to the worker ──────────────────
+        from tasks import classify_and_judge as _async_task
+
+        dispatched = 0
+
+        if args.source == "dataset":
+            if not args.dataset_path:
+                log.error("--dataset-path is required when --source=dataset")
+                return
+            papers = load_dataset_file(args.dataset_path)
+            random.shuffle(papers)
+            for paper in papers:
+                if dispatched >= args.n:
+                    break
+                _async_task.delay(
+                    doi=paper["doi"],
+                    title=paper["title"],
+                    abstract=paper["abstract"],
+                    model=model,
+                    initial_intent=paper.get("initial_intent"),
+                    source=paper.get("source", "dataset"),
+                )
+                dispatched += 1
+                log.info(f"  📤 Enqueued {dispatched}/{min(args.n, len(papers))}: {paper['doi'][:60]}")
+                time.sleep(args.delay)
+        elif args.source == "catalog":
+            db = SessionLocal()
+            try:
+                from models import PaperRecord
+
+                total = db.query(PaperRecord).count()
+                judged_dois = (
+                    db.query(DBAnnotation.paper_doi)
+                    .filter(DBAnnotation.llm_model == model)
+                    .scalar_subquery()
+                )
+                all_papers = (
+                    db.query(PaperRecord)
+                    .filter(~PaperRecord.doi.in_(judged_dois))
+                    .order_by(PaperRecord.doi)
+                    .all()
+                )
+                skipped = total - len(all_papers)
+                if skipped:
+                    log.info(
+                        f"Catalog filter: {skipped}/{total} already judged by {model} — excluded upfront"
+                    )
+                target = args.n if args.n > 0 else len(all_papers)
+                for p in all_papers:
+                    if dispatched >= target:
+                        break
+                    _async_task.delay(
+                        doi=p.doi,
+                        title=p.title,
+                        abstract=p.abstract,
+                        model=model,
+                        initial_intent=p.initial_intent or "Methodology",
+                        source=p.source or "catalog",
+                    )
+                    dispatched += 1
+                    log.info(f"  📤 Enqueued {dispatched}/{target}: {p.doi[:60]}")
+                    time.sleep(args.delay)
+            finally:
+                db.close()
+        else:
+            fetcher = fetch_arxiv if args.source == "arxiv" else fetch_openaire
+            queries = list(SEARCH_QUERIES)
+            random.shuffle(queries)
+            for query in queries:
+                if dispatched >= args.n:
+                    break
+                log.info(f"\n🔍 Query: '{query}'")
+                papers = fetcher(query, max_results=min(25, args.n - dispatched + 5))
+                random.shuffle(papers)
+                for paper in papers:
+                    if dispatched >= args.n:
+                        break
+                    _async_task.delay(
+                        doi=paper["doi"],
+                        title=paper["title"],
+                        abstract=paper["abstract"],
+                        model=model,
+                        source=paper.get("source", "arxiv"),
+                    )
+                    dispatched += 1
+                    log.info(f"  📤 Enqueued {dispatched}/{args.n}: {paper['doi'][:60]}")
+                    time.sleep(args.delay)
+        log.info(f"\n🏁 Done — {dispatched} tasks dispatched to Celery worker")
+        return
+
+    # ── Sync mode (original behaviour) ─────────────────────────────────────
+    db = SessionLocal()
+    judged = 0
+
+    try:
+        if args.source == "dataset":
+            # ── Dataset evaluation mode ─────────────────────────────────────
+            # Echo classification is skipped; ground-truth label from file is
+            # used as initial_intent directly.
+            if not args.dataset_path:
+                log.error("--dataset-path is required when --source=dataset")
+                return
+            papers = load_dataset_file(args.dataset_path)
+            random.shuffle(papers)
+            for paper in papers:
+                if judged >= args.n:
+                    break
+                ok = process_paper(paper, model, args.dry_run, db)
+                if ok:
+                    judged += 1
+                    log.info(f"  ✅ {judged}/{min(args.n, len(papers))} evaluated")
+                time.sleep(args.delay)
+        elif args.source == "catalog":
+            # ── Catalog mode: judge every paper in the local database ───────
+            from models import PaperRecord
+
+            total = db.query(PaperRecord).count()
+            judged_dois = (
+                db.query(DBAnnotation.paper_doi)
+                .filter(DBAnnotation.llm_model == model)
+                .scalar_subquery()
+            )
+            all_papers = (
+                db.query(PaperRecord)
+                .filter(~PaperRecord.doi.in_(judged_dois))
+                .order_by(PaperRecord.doi)
+                .all()
+            )
+            skipped = total - len(all_papers)
+            if skipped:
+                log.info(
+                    f"Catalog filter: {skipped}/{total} already judged by {model} — excluded upfront"
+                )
+            target = args.n if args.n > 0 else len(all_papers)
+            for p in all_papers:
+                if judged >= target:
+                    break
+                paper = {
+                    "doi": p.doi,
+                    "title": p.title,
+                    "abstract": p.abstract,
+                    "initial_intent": p.initial_intent or "Methodology",
+                    "source": p.source or "catalog",
+                }
+                ok = process_paper(paper, model, args.dry_run, db)
+                if ok:
+                    judged += 1
+                    log.info(f"  ✅ {judged}/{target} annotated")
+                time.sleep(args.delay)
+        else:
+            # ── Live source mode (arxiv / openaire) ─────────────────────────
+            fetcher = fetch_arxiv if args.source == "arxiv" else fetch_openaire
+            queries = list(SEARCH_QUERIES)
+            random.shuffle(queries)
+            for query in queries:
+                if judged >= args.n:
+                    break
+                log.info(f"\n🔍 Query: '{query}'")
+                papers = fetcher(query, max_results=min(25, args.n - judged + 5))
+                random.shuffle(papers)
+                for paper in papers:
+                    if judged >= args.n:
+                        break
+                    ok = process_paper(paper, model, args.dry_run, db)
+                    if ok:
+                        judged += 1
+                        log.info(f"  ✅ {judged}/{args.n} annotated")
+                    time.sleep(args.delay)
+    finally:
+        db.close()
+
+    log.info(f"\n🏁 Done — {judged} annotations saved (dry_run={args.dry_run})")
+
+
+# ── Entry point ────────────────────────────────────────────────────────────────
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="LLM-as-Judge: batch-classify papers and persist LLM verdicts.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--source",
+        choices=["arxiv", "openaire", "dataset", "catalog"],
+        default="openaire",
+        help="Paper source: arxiv/openaire fetch live papers; dataset reads a local JSONL file (skips Echo inference); catalog judges all papers registered in the local database.",
+    )
+    parser.add_argument(
+        "--dataset-path",
+        default=None,
+        metavar="PATH",
+        help="Path to JSONL file when --source=dataset. Each line: {title, abstract, label, doi}.",
+    )
+    parser.add_argument(
+        "--n",
+        type=int,
+        default=50,
+        help="Number of papers to annotate.",
+    )
+    parser.add_argument(
+        "--model",
+        default=LLM_JUDGE_DEFAULT_MODEL,
+        help="LLM model ID (any model supported by the server).",
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=1.5,
+        help="Seconds to wait between successive LLM API calls (rate limiting).",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Classify and judge but do NOT write to the database.",
+    )
+    parser.add_argument(
+        "--async",
+        dest="async_mode",
+        action="store_true",
+        default=False,
+        help="Dispatch Celery tasks instead of running synchronously. Requires Redis + worker.",
+    )
+    parser.add_argument(
+        "--device",
+        default="auto",
+        choices=["cuda", "cpu", "auto"],
+        help="Device for Echo intent classifier (default: auto — cuda if available, else cpu).",
+    )
+    parser.add_argument(
+        "--llm-url",
+        default=None,
+        metavar="URL",
+        help="Override LLM base URL (e.g. http://other-host:13305/v1).",
+    )
+    parser.add_argument(
+        "--llm-key",
+        default=None,
+        metavar="KEY",
+        help="Override LLM API key (default: value from .env / config.py).",
+    )
+    args = parser.parse_args()
+    # Apply device before the classifier singleton loads
+    import os as _os
+
+    _os.environ["INTENT_CLF_DEVICE"] = args.device
+    run(args)
+
+
+if __name__ == "__main__":
+    main()
