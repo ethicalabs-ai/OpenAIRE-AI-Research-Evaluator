@@ -16,6 +16,54 @@ Migrate the database:
 uv run alembic -c backend/alembic.ini upgrade head
 ```
 
+## LLM Server Setup
+
+Any OpenAI-compatible server works. Configuration via `.env`:
+
+```env
+LLM_BASE_URL=<server-url>
+LLM_API_KEY=not-needed     # for local servers that skip auth
+```
+
+### Ollama
+
+```bash
+ollama pull qwen3:4b
+ollama serve
+```
+
+```env
+LLM_BASE_URL=http://localhost:11434/v1
+```
+
+### LM Studio
+
+Start the local server in the UI (Developer → Local Server). Default port:
+
+```env
+LLM_BASE_URL=http://localhost:1234/v1
+```
+
+### Lemonade / llama.cpp
+
+```bash
+lemonade --host 0.0.0.0 load --pinned Qwen3.6-35B-A3B-GGUF
+```
+
+```env
+LLM_BASE_URL=http://192.168.1.40:13305/v1
+```
+
+### Docker — LLM on host
+
+When running the app in Docker and the LLM server on the host, use `host.docker.internal`:
+
+```env
+LLM_BASE_URL=http://host.docker.internal:11434/v1
+```
+
+The `docker-compose.yaml` already includes `extra_hosts: host.docker.internal:host-gateway`.
+
 ## Batch Runner — Sync
 
 Loads models on lemonade, judges papers inline:
