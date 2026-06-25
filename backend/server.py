@@ -5,7 +5,7 @@ import uuid
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -1384,6 +1384,66 @@ if os.path.exists(STATIC_DIR):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 
+# =============================================================================
+# MCP (Model Context Protocol) — agent-facing classification via SSE
+# =============================================================================
+
+from config import MCP_API_KEY
+from fastapi.responses import StreamingResponse
+import asyncio
+import time
+
+
+def _sse_event(event: str, data: dict | str) -> str:
+    """Format an SSE event."""
+    payload = _json.dumps(data) if isinstance(data, dict) else data
+    return f"event: {event}\ndata: {payload}\n\n"
+
+
+@app.get("/api/mcp/classify")
+async def mcp_classify(
+    title: str,
+    abstract: str,
+    api_key: str,
+):
+    """
+    MCP SSE endpoint — classify a paper and stream the result.
+
+    Query params:
+      - title: paper title
+      - abstract: paper abstract
+      - api_key: global MCP API key (from config.py / .env)
+    """
+    if api_key != MCP_API_KEY:
+        return JSONResponse(
+            {"error": "invalid api_key"}, status_code=401
+        )
+
+    from tasks import classify_mcp as _task
+
+    async def event_stream():
+        yield _sse_event("status", {"state": "processing"})
+        task = _task.delay(title=title, abstract=abstract)
+        for _ in range(300):
+            if task.ready():
+                result = task.get(timeout=5)
+                yield _sse_event("result", result)
+                yield _sse_event("status", {"state": "done"})
+                return
+            await asyncio.sleep(0.1)
+        yield _sse_event("error", {"message": "timeout"})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ── SPA fallback (must be last) ───────────────────────────────────────────────
 @app.get("/{fallback_path:path}")
 async def serve_spa(fallback_path: str):
     """Serve SPA index.html fallback for vue-router / history mode."""

@@ -240,3 +240,28 @@ def test_classify_and_judge_with_initial_intent(
         assert p.source == "dataset"
     finally:
         db.close()
+
+
+# ── classify_mcp tests ────────────────────────────────────────────────────────
+
+
+class FakeMCPResult:
+    label = "Methodology"
+    probabilities = {"Methodology": 0.87, "Dataset": 0.03, "Review": 0.02, "Applied": 0.06, "Theoretical": 0.02}
+
+
+def test_classify_mcp_returns_label_and_probabilities(monkeypatch):
+    """MCP task should return label + all 5 probabilities without DB writes."""
+    monkeypatch.setattr(
+        "tasks.classify_paper",
+        lambda title, abstract: FakeMCPResult(),
+    )
+
+    from tasks import classify_mcp
+
+    result = classify_mcp("Test Title", "Test Abstract")
+
+    assert result["label"] == "Methodology"
+    assert "probabilities" in result
+    assert len(result["probabilities"]) == 5
+    assert result["probabilities"]["Methodology"] == 0.87

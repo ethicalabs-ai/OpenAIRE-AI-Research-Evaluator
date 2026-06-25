@@ -20,6 +20,6 @@ celery_app.conf.update(
 # Workload Concurrency Division Routing
 celery_app.conf.task_routes = {
     "tasks.ping_task": {"queue": "cpu"},
-    "tasks.judge_single_paper": {"queue": "cpu"},
     "tasks.classify_and_judge": {"queue": "cpu"},
+    "tasks.classify_mcp": {"queue": "cpu"},
 }

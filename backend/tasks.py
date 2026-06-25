@@ -108,3 +108,19 @@ def classify_and_judge(
         return {"status": "error", "reason": "unhandled", "doi": doi, "detail": str(e)[:200]}
     finally:
         db.close()
+
+
+@celery_app.task(name="tasks.classify_mcp")
+def classify_mcp(title: str, abstract: str) -> dict:
+    """
+    Classify a paper via MCP — returns label + all probabilities.
+
+    No database writes. Stateless, fast, agent-facing.
+    """
+    from intent_classifier import classify_paper
+
+    result = classify_paper(title, abstract)
+    return {
+        "label": result.label,
+        "probabilities": result.probabilities,
+    }
