@@ -79,6 +79,14 @@ judge-async-openaire: ## Dispatch async judge tasks for OpenAIRE papers
 judge-eval: ## Generate LLM-as-Judge evaluation report
 	uv run python backend/judge_eval.py
 
+## --- Documentation ---
+
+docs-serve: ## Serve MkDocs documentation locally (http://localhost:8000)
+	uv run mkdocs serve
+
+docs-build: ## Build MkDocs static site into site/
+	uv run mkdocs build
+
 ## --- Maintenance ---
 
 clean: ## Remove Python cache and build artifacts

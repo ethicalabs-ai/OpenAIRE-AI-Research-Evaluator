@@ -9,7 +9,7 @@ venv
 .antigravitycli
 
 # Data and Checkpoints
-./data/
+data/
 checkpoints/
 *.bin
 *.pth

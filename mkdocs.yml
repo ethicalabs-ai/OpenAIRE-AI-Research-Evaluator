@@ -1,0 +1,21 @@
+site_name: OpenAIRE-AI-Research-Evaluator
+site_description: Multi-model LLM-as-Judge pipeline for the OpenAIRE AI Hackathon 2026
+repo_url: https://github.com/ethicalabs-ai/OpenAIRE-AI-Research-Evaluator
+theme:
+  name: material
+  palette:
+    primary: custom
+nav:
+  - Home: index.md
+  - Quick Start: quickstart.md
+  - Architecture: architecture.md
+  - LLM-as-Judge: llm-as-judge.md
+  - Inference: inference.md
+  - Hackathon Story: story.md
+  - License: license.md
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - admonition
+  - tables

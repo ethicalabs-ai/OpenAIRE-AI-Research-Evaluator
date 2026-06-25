@@ -9,7 +9,7 @@ venv
 .antigravitycli
 
 # Data and Checkpoints
-./data/
+data/
 checkpoints/
 *.bin
 *.pth
@@ -41,6 +41,9 @@ experiments/
 
 # Generated reports
 backend/judge_report.md
+
+# MkDocs build output
+site/
 
 # Excluded for now
 .coverage

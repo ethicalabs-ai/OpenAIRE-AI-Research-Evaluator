@@ -103,7 +103,7 @@ Computes agreement rates, class-level accuracy, and per-model alignment stats ag
 |---|---|
 | **Frontend** | Vue 3 / Vite dashboard — tabs: Model Card, Collab Hub, OpenAIRE Stream, Free Text, Saved History |
 | **Backend** | FastAPI — inference, arXiv/OpenAIRE proxy, LLM judge orchestration, auth |
-| **Classifier** | Echo-DSRN-114M (`EchoForSequenceClassification`) — sub-millisecond CPU inference |
+| **Classifier** | Echo-DSRN-98M (`EchoForSequenceClassification`) — sub-millisecond CPU inference |
 | **Annotation DB** | SQLite (`data/collaborative.db`) — stores user classifications and LLM judge labels |
 | **Worker** | Celery + Redis — async classification queue |
 

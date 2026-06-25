@@ -2,3 +2,9 @@
 ignore = [
     "E712",  # Avoid auto-fixing comparison to True/False (needed for SQLAlchemy boolean filters)
 ]
+
+[dependency-groups]
+dev = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.6",
+]
