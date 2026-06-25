@@ -41,7 +41,7 @@ def temp_db(monkeypatch):
     tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     tmp.close()
     db_url = f"sqlite:///{tmp.name}"
-    monkeypatch.setattr("database.DATABASE_URL", db_url)
+    monkeypatch.setenv("DATABASE_URL", db_url)
 
     # Reload database module to pick up new URL
     import database
@@ -253,7 +253,7 @@ class FakeMCPResult:
 def test_classify_mcp_returns_label_and_probabilities(monkeypatch):
     """MCP task should return label + all 5 probabilities without DB writes."""
     monkeypatch.setattr(
-        "tasks.classify_paper",
+        "intent_classifier.classify_paper",
         lambda title, abstract: FakeMCPResult(),
     )
 
