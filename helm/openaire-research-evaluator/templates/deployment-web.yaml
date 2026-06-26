@@ -34,3 +34,9 @@ spec:
               port: {{ .Values.config.appPort }}
             initialDelaySeconds: 5
             periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.config.appPort }}
+            initialDelaySeconds: 15
+            periodSeconds: 30

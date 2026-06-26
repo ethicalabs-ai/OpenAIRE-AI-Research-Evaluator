@@ -19,7 +19,7 @@ secrets:
   hfClientSecret: ""
   geminiApiKey: ""
   mcpApiKey: "echo-dsrn-mcp-change-me-in-production"
-  postgresPassword: "postgres"
+  postgresPassword: ""
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 config:
