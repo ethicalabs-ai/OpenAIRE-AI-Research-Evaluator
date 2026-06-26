@@ -88,6 +88,21 @@ Dispatches Celery tasks to the worker, no model loading:
 ./scripts/run_judges.sh 100 --async
 ```
 
+## Kubernetes (k3s)
+
+Run the judge CLI directly in the deployed web pod:
+
+```bash
+kubectl exec -it deployment/evaluator-openaire-research-evaluator-web -- \
+  env LLM_BASE_URL=http://192.168.1.66:13305/v1 \
+  python backend/judge_cli.py \
+    --source catalog --n 100 \
+    --model gpt-oss-20b-mxfp4-GGUF \
+    --async
+```
+
+Tasks dispatch to the cluster's Celery worker, using the same Redis and PostgreSQL.
+
 ## Single Run
 
 ```bash
