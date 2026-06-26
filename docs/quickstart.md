@@ -9,13 +9,18 @@
 
 ## Docker Compose
 
+The Echo-DSRN classifier is a gated HF model. Before building:
+
+1. [Request access](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF) to the model repo
+2. Create an [HF access token](https://huggingface.co/settings/tokens) with read permissions
+3. Add it to `.env`: `HF_TOKEN=hf_...`
+
 ```bash
+make rebuild      # builds Docker image with the gated model
 docker compose up -d
 ```
 
 App serves on `http://localhost:7860`. Redis, the web server, and a Celery worker start automatically.
-
-Set `HF_TOKEN` in `.env` for gated model access during the Docker build (see [`.env.example`](https://github.com/ethicalabs-ai/OpenAIRE-AI-Research-Evaluator/blob/main/.env.example)).
 
 ## Python
 

@@ -23,8 +23,13 @@ build-ui: ## Build the Vue.js frontend for production
 build-ui-deploy: ## Build frontend and hot-deploy into running web container
 	cd frontend && npm run build && docker cp dist/. echo_dsrn_graph_web:/app/frontend/dist/ && docker restart echo_dsrn_graph_web
 
-build-docker: ## Build the Docker image (set HF_TOKEN in .env for gated model access)
-	docker compose build
+build-docker: ## Build the Docker image (reads HF_TOKEN from .env)
+	@HF_TOKEN=$$(grep -oP 'HF_TOKEN=\K.*' .env | head -1); \
+	DOCKER_BUILDKIT=1 docker build --secret id=HF_TOKEN,env=HF_TOKEN -t echo-dsrn-graph . 2>&1 | tail -5
+
+rebuild: ## Clean rebuild all Docker images from scratch
+	@HF_TOKEN=$$(grep -oP 'HF_TOKEN=\K.*' .env | head -1); \
+	DOCKER_BUILDKIT=1 docker build --no-cache --secret id=HF_TOKEN,env=HF_TOKEN -t echo-dsrn-graph . 2>&1 | tail -5
 
 ## --- Run ---
 

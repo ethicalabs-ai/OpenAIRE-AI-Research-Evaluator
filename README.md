@@ -8,7 +8,14 @@ A multi-model LLM-as-Judge pipeline that builds annotation datasets to train Ech
 
 **Prerequisites:** Python ≥ 3.12, Node.js ≥ 22, npm ≥ 10, Docker
 
+The Echo-DSRN classifier is a gated HuggingFace model. Before building:
+
+1. [Request access](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF) to the model repo
+2. Create an [HF access token](https://huggingface.co/settings/tokens) with read permissions
+3. Add it to `.env`: `HF_TOKEN=hf_...`
+
 ```bash
+make rebuild      # builds Docker image with the gated model
 docker compose up -d
 ```
 
