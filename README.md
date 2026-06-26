@@ -78,7 +78,7 @@ uv run python backend/judge_cli.py \
 **With pre-labeled datasets** — convert chat-format JSONL to flat records, then judge:
 
 ```bash
-uv run python backend/reformat_for_judge.py \
+uv run python scripts/reformat_for_judge.py \
     ~/.ethicalabs/datasets/research-intent/train.jsonl \
     ~/.ethicalabs/datasets/research-intent/train_flat.jsonl
 
