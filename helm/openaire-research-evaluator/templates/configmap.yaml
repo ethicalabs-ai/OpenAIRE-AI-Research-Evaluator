@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "chart.fullname" . }}-config
+  labels: {{ include "chart.labels" . | nindent 4 }}
+data:
+  APP_BASE_URL: {{ .Values.config.appBaseUrl | quote }}
+  APP_PORT: {{ .Values.config.appPort | quote }}
+  LLM_BASE_URL: {{ .Values.config.llmBaseUrl | quote }}
+  LLM_API_KEY: {{ .Values.config.llmApiKey | quote }}
+  EXPORT_ENABLED: {{ ternary "true" "false" .Values.config.exportEnabled | quote }}
+  DATABASE_URL: "postgresql+psycopg2://postgres:$(POSTGRES_PASSWORD)@{{ include "chart.fullname" . }}-postgres:5432/echo_dsrn"
+  REDIS_URL: "redis://{{ include "chart.fullname" . }}-redis:6379/0"

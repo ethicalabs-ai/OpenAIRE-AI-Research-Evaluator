@@ -14,6 +14,7 @@ nav:
   - OAuth: oauth.md
   - Inference: inference.md
   - Hackathon Story: story.md
+  - Deployment: deployment.md
   - License: license.md
 markdown_extensions:
   - pymdownx.highlight:

@@ -10,6 +10,7 @@ pytest
 pytest-cov
 celery
 redis
+psycopg2-binary>=2.9
 langdetect
 fastapi
 uvicorn

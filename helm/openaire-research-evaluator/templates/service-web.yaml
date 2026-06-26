@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" . }}-web
+  labels: {{ include "chart.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.config.appPort }}
+      targetPort: {{ .Values.config.appPort }}
+  selector:
+    {{- include "chart.selectorLabels" . | nindent 4 }}
+    component: web

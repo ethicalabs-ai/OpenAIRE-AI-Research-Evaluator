@@ -1,0 +1,18 @@
+# Node modules
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# Data
+data/
+*.db
+
+# IDE
+.idea/
+.vscode/
+.qwen/
