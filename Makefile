@@ -3,7 +3,7 @@
 .DEFAULT_GOAL := help
 
 help: ## Show this help message
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 ## --- Installation & Setup ---
 
@@ -45,6 +45,37 @@ logs: ## View logs from all containers
 
 logs-f: ## Follow logs from all containers
 	docker compose logs -f
+
+## --- k3s ─────────────────────────────────────────────────────────────────────
+
+k8s-status: ## Show k8s pod status
+	kubectl get pods -o wide
+
+k8s-logs-web: ## Tail web pod logs
+	kubectl logs -l component=web --tail=50 -f
+
+k8s-logs-worker: ## Tail worker pod logs
+	kubectl logs -l component=worker --tail=50 -f
+
+k8s-restart: ## Restart web + worker deployments
+	kubectl rollout restart deployment/evaluator-openaire-research-evaluator-web deployment/evaluator-openaire-research-evaluator-worker
+
+k8s-deploy: ## Helm upgrade from local chart (reads HF_TOKEN from .env)
+	@HF_TOKEN=$$(grep -oP 'HF_TOKEN=\K.*' .env | head -1); \
+	HF_ID=$$(grep -oP 'HF_CLIENT_ID=\K.*' .env | head -1); \
+	HF_SECRET=$$(grep -oP 'HF_CLIENT_SECRET=\K.*' .env | head -1); \
+	helm upgrade evaluator ./helm/openaire-research-evaluator \
+	  --set secrets.hfToken="$$HF_TOKEN" \
+	  --set secrets.hfClientId="$$HF_ID" \
+	  --set secrets.hfClientSecret="$$HF_SECRET" \
+	  --set secrets.secretKey=$$(openssl rand -hex 32) \
+	  --set config.appBaseUrl="http://openaire-eval.local"
+
+k8s-port-forward: ## Port-forward web to localhost:7860
+	kubectl port-forward svc/evaluator-openaire-research-evaluator-web 7860:7860
+
+k8s-postgres: ## Open psql on the postgres pod
+	kubectl exec -it deployment/evaluator-openaire-research-evaluator-postgres -- psql -U postgres -d echo_dsrn
 
 ## --- Quality ---
 
