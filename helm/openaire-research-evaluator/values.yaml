@@ -30,12 +30,18 @@ config:
   exportEnabled: false
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
+# Set externalUrl to use a managed PostgreSQL (skips built-in deployment).
+# Example: "postgresql+psycopg2://user:pass@host:5432/echo_dsrn"
 postgres:
+  externalUrl: ""
   image: ankane/pgvector:v0.5.1
   storage: 2Gi
 
 # ── Redis ─────────────────────────────────────────────────────────────────────
+# Set externalUrl to use a managed Redis (skips built-in deployment).
+# Example: "redis://host:6379/0"
 redis:
+  externalUrl: ""
   image: redis:7-alpine
 
 # ── Resources ─────────────────────────────────────────────────────────────────

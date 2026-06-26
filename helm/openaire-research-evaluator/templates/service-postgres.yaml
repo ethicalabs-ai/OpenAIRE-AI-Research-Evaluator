@@ -1,3 +1,4 @@
+{{- if not .Values.postgres.externalUrl }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -11,3 +12,4 @@ spec:
   selector:
     {{- include "chart.selectorLabels" . | nindent 4 }}
     component: postgres
+{{- end }}

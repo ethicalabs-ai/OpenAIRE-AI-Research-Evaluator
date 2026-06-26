@@ -1,3 +1,4 @@
+{{- if not .Values.redis.externalUrl }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,3 +28,4 @@ spec:
             limits:
               memory: 128Mi
               cpu: 200m
+{{- end }}

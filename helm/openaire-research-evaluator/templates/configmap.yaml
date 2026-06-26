@@ -9,4 +9,4 @@ data:
   LLM_BASE_URL: {{ .Values.config.llmBaseUrl | quote }}
   LLM_API_KEY: {{ .Values.config.llmApiKey | quote }}
   EXPORT_ENABLED: {{ ternary "true" "false" .Values.config.exportEnabled | quote }}
-  REDIS_URL: "redis://{{ include "chart.fullname" . }}-redis:6379/0"
+  REDIS_URL: {{ if .Values.redis.externalUrl }}{{ .Values.redis.externalUrl | quote }}{{ else }}"redis://{{ include "chart.fullname" . }}-redis:6379/0"{{ end }}
