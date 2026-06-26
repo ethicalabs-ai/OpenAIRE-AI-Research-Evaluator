@@ -924,7 +924,7 @@ async def oauth_callback(
 
     token = create_session_token(db_user.id, db_user.name)
 
-    response = RedirectResponse(url="/#collab")
+    response = RedirectResponse(url="/collab")
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
