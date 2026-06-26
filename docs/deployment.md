@@ -57,6 +57,11 @@ kubectl cp data/collaborative_pg.sql \
 
 kubectl exec -it deployment/evaluator-openaire-research-evaluator-postgres -- \
   psql -U postgres -d echo_dsrn -f /tmp/collaborative_pg.sql
+
+# Reset auto-increment sequences after import (IDs were explicit in the dump)
+kubectl exec deployment/evaluator-openaire-research-evaluator-postgres -- \
+  psql -U postgres -d echo_dsrn -c \
+  "SELECT setval('annotations_id_seq', COALESCE((SELECT MAX(id) FROM annotations), 1))"
 ```
 
 ## 4. Access
