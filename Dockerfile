@@ -46,7 +46,7 @@ ENV INTENT_CLF_PATH=ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF
 COPY . .
 
 # Build the frontend locally
-RUN cd frontend && npm ci && npm run build
+RUN cd frontend && npm install && npm run build
 
 # Ensure entrypoint is executable
 RUN chmod +x docker_entrypoint.sh
