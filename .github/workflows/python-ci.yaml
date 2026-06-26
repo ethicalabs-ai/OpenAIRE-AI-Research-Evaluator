@@ -1,0 +1,26 @@
+name: python-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install runtime deps
+        run: uv pip install -r requirements.txt
+
+      - name: Install test deps
+        run: uv pip install pytest pytest-cov
+
+      - name: Run tests
+        run: uv run pytest tests/ -v
