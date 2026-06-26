@@ -23,15 +23,16 @@ sqlite3 "$INPUT" .dump | python3 -c "
 import sys, re
 
 for line in sys.stdin:
-    # Skip PRAGMAs and transaction boundaries
-    if line.startswith('PRAGMA') or line.startswith('BEGIN TRANSACTION') or line.startswith('COMMIT'):
+    # Only keep INSERT statements — schema is created by alembic
+    if not line.startswith('INSERT INTO'):
         continue
-    # Replace AUTOINCREMENT with PostgreSQL-compatible SERIAL
-    line = line.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY')
     # Remove double-quotes around identifiers
     line = re.sub(r'\"(sqlite_|alembic_|\w+)\"', r'\1', line)
     # Replace datetime('now') with now()
     line = line.replace(\"datetime('now')\", 'now()')
+    # SQLite stores booleans as 0/1 — cast to TRUE/FALSE for PostgreSQL
+    line = re.sub(r\"(,)\s*1\s*(,|\))\", r'\\1 TRUE\\2', line)
+    line = re.sub(r\"(,)\s*0\s*(,|\))\", r'\\1 FALSE\\2', line)
     sys.stdout.write(line)
 " > "$OUTPUT"
 

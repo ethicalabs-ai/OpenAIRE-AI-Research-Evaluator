@@ -21,6 +21,9 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.config.appPort }}
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+psycopg2://postgres:$(POSTGRES_PASSWORD)@{{ include "chart.fullname" . }}-postgres:5432/echo_dsrn"
           envFrom:
             - configMapRef:
                 name: {{ include "chart.fullname" . }}-config

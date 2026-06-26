@@ -24,6 +24,8 @@ spec:
               value: worker-cpu
             - name: CONCURRENCY
               value: {{ .Values.worker.concurrency | quote }}
+            - name: DATABASE_URL
+              value: "postgresql+psycopg2://postgres:$(POSTGRES_PASSWORD)@{{ include "chart.fullname" . }}-postgres:5432/echo_dsrn"
           envFrom:
             - configMapRef:
                 name: {{ include "chart.fullname" . }}-config
