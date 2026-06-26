@@ -12,8 +12,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - HF_TOKEN=${HF_TOKEN:-}
     container_name: echo_dsrn_graph_web
     ports:
       - "0.0.0.0:7860:7860"
@@ -35,8 +33,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - HF_TOKEN=${HF_TOKEN:-}
     container_name: echo_dsrn_graph_worker_cpu
     env_file:
       - .env

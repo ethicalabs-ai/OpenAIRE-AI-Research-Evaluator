@@ -32,5 +32,5 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: ethicalabs/openaire-research-evaluator:latest
-          build-args: |
-            HF_TOKEN=${{ secrets.HF_TOKEN }}
+          secrets: |
+            "HF_TOKEN=${{ secrets.HF_TOKEN }}"

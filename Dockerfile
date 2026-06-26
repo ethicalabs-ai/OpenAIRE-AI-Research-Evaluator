@@ -23,16 +23,15 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/
 # HuggingFace cache location (baked into image)
 ENV HF_HOME=/app/hf_cache
 
-# HuggingFace token for gated model access (optional build arg)
-ARG HF_TOKEN
-
 # Copy only requirements to leverage Docker cache
 COPY requirements.txt .
 RUN uv pip install --system -r requirements.txt
 
 # Pre-download the Echo-DSRN intent classifier model (avoids runtime HF download)
 # HF_TOKEN is consumed natively by huggingface_hub / transformers
-RUN HF_TOKEN=${HF_TOKEN} python -c "\
+RUN --mount=type=secret,id=HF_TOKEN \
+    HF_TOKEN=$(cat /run/secrets/HF_TOKEN 2>/dev/null || echo "") \
+    python -c "\
 from echo_dsrn import EchoForSequenceClassification; \
 from transformers import AutoTokenizer; \
 model_id = 'ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF'; \
