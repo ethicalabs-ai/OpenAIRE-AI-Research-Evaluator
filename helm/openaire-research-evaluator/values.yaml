@@ -25,6 +25,8 @@ secrets:
 config:
   appBaseUrl: "http://localhost:7860"
   appPort: 7860
+  # LLM server URL (OpenAI-compatible). Override at install time:
+  #   --set config.llmBaseUrl="http://192.168.1.66:13305/v1"
   llmBaseUrl: "http://host.docker.internal:13305/v1"
   llmApiKey: "not-needed"
   exportEnabled: false

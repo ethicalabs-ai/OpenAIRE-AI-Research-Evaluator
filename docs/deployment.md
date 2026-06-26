@@ -25,7 +25,8 @@ Generates `data/collaborative_pg.sql` — ready for PostgreSQL import.
 helm install evaluator ./helm/openaire-research-evaluator \
   --set secrets.hfToken=hf_... \
   --set secrets.secretKey=$(openssl rand -hex 32) \
-  --set ingress.host=openaire-eval.local
+  --set ingress.host=openaire-eval.local \
+  --set config.llmBaseUrl=http://192.168.1.66:13305/v1
 ```
 
 Or create a `values.local.yaml`:
@@ -38,6 +39,8 @@ secrets:
   hfClientSecret: ...
 ingress:
   host: openaire-eval.local
+config:
+  llmBaseUrl: http://192.168.1.66:13305/v1
 ```
 
 ```bash
