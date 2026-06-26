@@ -64,6 +64,14 @@ kubectl port-forward svc/evaluator-openaire-research-evaluator-web 7860:7860
 
 App at `http://localhost:7860`. With Ingress configured, at `http://openaire-eval.local`.
 
+**Local DNS setup:** add to `/etc/hosts`:
+
+```bash
+echo "127.0.0.1 openaire-eval.local" | sudo tee -a /etc/hosts
+```
+
+Then access at `http://openaire-eval.local` (k3s Traefik listens on port 80).
+
 ## Components
 
 | Component | Service | Port |
