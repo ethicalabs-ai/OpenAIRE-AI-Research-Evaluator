@@ -69,7 +69,9 @@ k8s-deploy: ## Helm upgrade from local chart (reads HF_TOKEN from .env)
 	  --set secrets.hfClientId="$$HF_ID" \
 	  --set secrets.hfClientSecret="$$HF_SECRET" \
 	  --set secrets.secretKey=$$(openssl rand -hex 32) \
-	  --set config.appBaseUrl="http://openaire-eval.local"
+	  --set secrets.postgresPassword="postgres" \
+	  --set config.appBaseUrl="http://openaire-eval.local" \
+	  --set config.llmBaseUrl="http://192.168.1.66:13305/v1"
 
 k8s-port-forward: ## Port-forward web to localhost:7860
 	kubectl port-forward svc/evaluator-openaire-research-evaluator-web 7860:7860
