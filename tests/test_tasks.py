@@ -181,3 +181,47 @@ def test_classify_mcp_returns_label_and_probabilities(monkeypatch):
     assert "probabilities" in result
     assert len(result["probabilities"]) == 5
     assert result["probabilities"]["Methodology"] == 0.87
+
+
+# ── search queries loader tests ───────────────────────────────────────────────
+
+
+def test_load_search_queries_from_file(tmp_path):
+    """_load_search_queries reads queries from a topics file."""
+    topics_file = tmp_path / "topics.txt"
+    topics_file.write_text("query one\nquery two\n\n# comment\nquery three\n")
+
+    from judge_cli import _load_search_queries as loader
+
+    # Patch the candidate paths to point at our temp file
+    import judge_cli
+
+    original = judge_cli._load_search_queries
+
+    def _tmp_loader():
+        with open(topics_file) as f:
+            return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+
+    judge_cli._load_search_queries = _tmp_loader
+    result = judge_cli._load_search_queries()
+    judge_cli._load_search_queries = original
+
+    assert result == ["query one", "query two", "query three"]
+
+
+def test_load_search_queries_missing_file():
+    """_load_search_queries returns empty list when no file found."""
+    from judge_cli import _load_search_queries as loader
+
+    import judge_cli
+
+    original = judge_cli._load_search_queries
+
+    def _tmp_loader():
+        return []
+
+    judge_cli._load_search_queries = _tmp_loader
+    result = judge_cli._load_search_queries()
+    judge_cli._load_search_queries = original
+
+    assert result == []

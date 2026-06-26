@@ -2,6 +2,12 @@
 
 The LLM-as-Judge pipeline evaluates Echo-DSRN predictions against high-capability LLMs and produces a golden consensus dataset in `data/collaborative.db`.
 
+## Search Queries
+
+arXiv and OpenAIRE sources use keyword queries from `assets/topics.txt` — one query per line, blank lines and `#` comments ignored. Edit this file to target specific research domains.
+
+Container path: `/app/assets/topics.txt`
+
 ## Setup
 
 Point at a lemonade or llama.cpp server via `.env`:
