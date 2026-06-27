@@ -229,7 +229,8 @@ export default {
       const meRes = await fetch("/api/auth/me").catch(() => null);
       const meData = meRes ? await meRes.json() : {};
       if (meData.authenticated) {
-        window.location.href = "/#collab";
+        window.history.pushState(null, "", "/collab");
+        window.dispatchEvent(new PopStateEvent("popstate"));
       } else {
         const loginRes = await fetch("/api/auth/login/hf");
         const loginData = await loginRes.json();
