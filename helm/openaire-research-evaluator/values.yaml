@@ -4,7 +4,7 @@
 image:
   repository: ethicalabs/openaire-research-evaluator
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 # ── Ingress ───────────────────────────────────────────────────────────────────
 ingress:
