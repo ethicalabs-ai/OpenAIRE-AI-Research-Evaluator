@@ -215,7 +215,7 @@
         <a href="https://huggingface.co/ethicalabs" target="_blank"
           >Hugging Face</a
         >
-        <a href="https://github.com/ethicallabs-ai" target="_blank">GitHub</a>
+        <a href="https://github.com/ethicalabs-ai" target="_blank">GitHub</a>
       </div>
       <div class="footer-openaire">
         <span
