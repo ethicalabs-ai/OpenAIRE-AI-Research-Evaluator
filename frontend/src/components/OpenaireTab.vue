@@ -389,7 +389,17 @@ export default {
 .save-box {
   display: flex;
   justify-content: flex-end;
+  gap: 0.75rem;
   border-top: 1px solid var(--border-color);
   padding-top: 1.25rem;
+  flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+  .save-box {
+    justify-content: stretch;
+  }
+  .save-box button {
+    flex: 1 1 100%;
+  }
 }
 </style>

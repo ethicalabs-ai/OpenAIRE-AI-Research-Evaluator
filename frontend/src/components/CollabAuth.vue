@@ -300,4 +300,41 @@ export default {
 .btn-danger:hover {
   background: rgba(239, 68, 68, 0.25);
 }
+
+@media (max-width: 640px) {
+  .auth-profile {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .profile-info {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .profile-details {
+    align-items: center;
+  }
+  .name-row {
+    justify-content: center;
+  }
+  .profile-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .profile-actions button {
+    flex: 1 1 auto;
+  }
+  .auth-promo {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.25rem;
+  }
+  .auth-promo-text {
+    text-align: center;
+  }
+  .auth-buttons-wrapper {
+    align-items: center;
+  }
+}
 </style>

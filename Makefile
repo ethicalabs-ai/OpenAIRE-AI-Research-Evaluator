@@ -24,11 +24,11 @@ build-ui-deploy: ## Build frontend and hot-deploy into running web container
 	cd frontend && npm run build && docker cp dist/. echo_dsrn_graph_web:/app/frontend/dist/ && docker restart echo_dsrn_graph_web
 
 build-docker: ## Build the Docker image (reads HF_TOKEN from .env)
-	@HF_TOKEN=$$(grep -oP 'HF_TOKEN=\K.*' .env | head -1); \
+	@HF_TOKEN=$$(grep '^HF_TOKEN=' .env | cut -d'=' -f2- | head -1); \
 	DOCKER_BUILDKIT=1 docker build --secret id=HF_TOKEN,env=HF_TOKEN -t echo-dsrn-graph . 2>&1 | tail -5
 
 rebuild: ## Clean rebuild all Docker images from scratch
-	@HF_TOKEN=$$(grep -oP 'HF_TOKEN=\K.*' .env | head -1); \
+	@HF_TOKEN=$$(grep '^HF_TOKEN=' .env | cut -d'=' -f2- | head -1); \
 	DOCKER_BUILDKIT=1 docker build --no-cache --secret id=HF_TOKEN,env=HF_TOKEN -t echo-dsrn-graph . 2>&1 | tail -5
 
 ## --- Run ---
@@ -61,9 +61,9 @@ k8s-restart: ## Restart web + worker deployments
 	kubectl rollout restart deployment/evaluator-openaire-research-evaluator-web deployment/evaluator-openaire-research-evaluator-worker
 
 k8s-deploy: ## Helm upgrade from local chart (reads HF_TOKEN from .env)
-	@HF_TOKEN=$$(grep -oP 'HF_TOKEN=\K.*' .env | head -1); \
-	HF_ID=$$(grep -oP 'HF_CLIENT_ID=\K.*' .env | head -1); \
-	HF_SECRET=$$(grep -oP 'HF_CLIENT_SECRET=\K.*' .env | head -1); \
+	@HF_TOKEN=$$(grep '^HF_TOKEN=' .env | cut -d'=' -f2- | head -1); \
+	HF_ID=$$(grep '^HF_CLIENT_ID=' .env | cut -d'=' -f2- | head -1); \
+	HF_SECRET=$$(grep '^HF_CLIENT_SECRET=' .env | cut -d'=' -f2- | head -1); \
 	helm upgrade evaluator ./helm/openaire-research-evaluator \
 	  --set secrets.hfToken="$$HF_TOKEN" \
 	  --set secrets.hfClientId="$$HF_ID" \

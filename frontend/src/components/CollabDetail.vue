@@ -870,4 +870,14 @@ export default {
   background: #00d2da;
   box-shadow: 0 0 12px rgba(0, 242, 254, 0.3);
 }
+
+@media (max-width: 640px) {
+  .meta-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .doi-label {
+    word-break: break-all;
+  }
+}
 </style>

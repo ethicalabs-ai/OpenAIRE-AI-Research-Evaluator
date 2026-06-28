@@ -561,6 +561,13 @@ export default {
   margin-bottom: 1.5rem;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 0.75rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  width: 100%;
+}
+.nav-tabs::-webkit-scrollbar {
+  display: none;
 }
 .tab-btn {
   display: flex;
@@ -576,6 +583,8 @@ export default {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .tab-btn:hover {
   color: var(--text-primary);
@@ -732,10 +741,50 @@ export default {
 
 @media (max-width: 640px) {
   .app-container {
-    padding: 1.5rem;
+    padding: 1.25rem 0.75rem;
+    width: 100%;
+    overflow: hidden;
+  }
+  .logo-area {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  .divider {
+    display: none;
+  }
+  .app-title {
+    font-size: 1.15rem;
+  }
+  .nav-tabs {
+    gap: 0.25rem;
+    overflow-x: visible;
+    padding-bottom: 0.5rem;
+  }
+  .tab-btn {
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    padding: 0.5rem 0.2rem;
+    white-space: normal;
+    text-align: center;
+  }
+  .tab-btn svg {
+    width: 16px;
+    height: 16px;
   }
   .footer {
     flex-direction: column;
+    text-align: center;
+  }
+  .footer-openaire {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .footer-legal {
     text-align: center;
   }
 }

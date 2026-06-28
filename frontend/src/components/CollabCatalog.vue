@@ -664,4 +664,20 @@ export default {
   color: var(--accent-blue);
   border: 1px solid rgba(0, 242, 254, 0.2);
 }
+
+@media (max-width: 640px) {
+  .filter-select {
+    flex: 1 1 calc(50% - 0.2rem);
+    min-width: 130px;
+    font-size: 0.8rem;
+    padding: 0.45rem 0.5rem;
+  }
+  .filter-toggle {
+    flex: 1 1 calc(50% - 0.2rem);
+    min-width: 130px;
+    font-size: 0.8rem;
+    padding: 0.45rem 0.65rem;
+    text-align: center;
+  }
+}
 </style>

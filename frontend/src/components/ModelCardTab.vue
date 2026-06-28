@@ -385,4 +385,17 @@ pre {
 .hf-link:hover {
   opacity: 0.8;
 }
+
+@media (max-width: 640px) {
+  .spec-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  .path-text {
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-all;
+  }
+}
 </style>

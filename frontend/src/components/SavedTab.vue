@@ -340,4 +340,29 @@ export default {
   color: var(--text-primary);
   font-family: monospace;
 }
+
+@media (max-width: 640px) {
+  .item-summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .item-left {
+    width: 100%;
+  }
+  .item-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .item-right {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .item-time {
+    font-size: 0.75rem;
+  }
+}
 </style>
