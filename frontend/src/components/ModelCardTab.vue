@@ -397,5 +397,9 @@ pre {
     white-space: normal;
     word-break: break-all;
   }
+  .code-body {
+    font-size: 0.78rem;
+    padding: 1rem;
+  }
 }
 </style>
