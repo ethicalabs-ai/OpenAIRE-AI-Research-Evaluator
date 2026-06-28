@@ -88,13 +88,6 @@
         <option value="human">👤 Human only</option>
         <option value="llm">🤖 LLM only</option>
       </select>
-      <button
-        class="filter-toggle"
-        :class="{ active: filterFlagged }"
-        @click="$emit('update:filterFlagged', !filterFlagged)"
-      >
-        ⚠️ Flagged
-      </button>
     </div>
 
     <!-- Active filters -->
@@ -116,13 +109,7 @@
       >
         {{ filterSource }} ✕
       </span>
-      <span
-        v-if="filterFlagged"
-        class="filter-pill"
-        @click="$emit('update:filterFlagged', false)"
-      >
-        Flagged ✕
-      </span>
+
       <span
         v-if="filterAnnotator"
         class="filter-pill"
