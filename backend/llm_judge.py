@@ -149,11 +149,16 @@ _JUDGE_FIELD_ALIASES: dict[str, str] = {
 
 
 def _normalize_judge_json(data: dict[str, Any]) -> dict[str, Any]:
-    """Normalize field names from loose model outputs to the Pydantic schema."""
+    """Normalize field names from loose model outputs to the Pydantic schema.
+
+    Lower-priority alias mappings never overwrite an already-set field.
+    """
     normalized: dict[str, Any] = {}
     for key, val in data.items():
         mapped = _JUDGE_FIELD_ALIASES.get(key.lower().strip(), key.lower().strip())
-        normalized[mapped] = val
+        # Never overwrite a value already set by a higher-priority key
+        if mapped not in normalized:
+            normalized[mapped] = val
 
     # Derive label_valid from proposed_label if not explicitly set
     if "proposed_label" in normalized and "label_valid" not in normalized:
@@ -232,7 +237,9 @@ def judge_paper(
         f"**Paper title:** {title}\n\n"
         f"**Abstract:**\n{abstract or '(no abstract provided)'}\n\n"
         f"**Echo model prediction:** {model_prediction}\n\n"
-        "Evaluate the prediction and return your verdict as JSON."
+        "Evaluate whether the prediction is correct. Set `proposed_label` to YOUR "
+        "own classification (what YOU think the label should be), not to the Echo prediction. "
+        "Return your verdict as JSON."
     )
 
     # chat_template_kwargs / max_tokens / temperature are llama.cpp extensions.
