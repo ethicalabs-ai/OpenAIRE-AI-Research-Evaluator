@@ -147,11 +147,11 @@ def fetch_arxiv(query: str, max_results: int = 25) -> list[dict]:
     return papers
 
 
-def fetch_openaire(query: str, max_results: int = 25, *, sort_fresh: bool = False) -> list[dict]:
+def fetch_openaire(query: str, max_results: int = 25, *, sort_fresh: bool = False, page: int = 1) -> list[dict]:
     """Fetch papers from OpenAIRE API."""
     import re
 
-    params: dict = {"title": query, "format": "json", "page": 1, "size": max_results}
+    params: dict = {"title": query, "format": "json", "page": page, "size": max_results}
     if sort_fresh:
         params["sortBy"] = "dateofcollection,descending"
 
@@ -601,27 +601,33 @@ def run(args: argparse.Namespace) -> None:
             for query in queries:
                 if dispatched >= args.n:
                     break
-                log.info(f"\n🔍 Query: '{query}'")
-                if args.source == "openaire":
-                    papers = fetcher(query, max_results=min(25, args.n - dispatched + 5), sort_fresh=sort_fresh)
-                else:
-                    papers = fetcher(query, max_results=min(25, args.n - dispatched + 5))
-                random.shuffle(papers)
-                for paper in papers:
+                for page in range(1, 6):
                     if dispatched >= args.n:
                         break
-                    _async_task.delay(
-                        doi=paper["doi"],
-                        title=paper["title"],
-                        abstract=paper["abstract"],
-                        model=model,
-                        source=paper.get("source", "arxiv"),
-                        remote_url=remote_url if is_remote else "",
-                        remote_api_key=remote_key if is_remote else "",
-                    )
-                    dispatched += 1
-                    log.info(f"  📤 Enqueued {dispatched}/{args.n}: {paper['doi'][:60]}")
-                    time.sleep(args.delay)
+                    log.info(f"\n🔍 Query: '{query}'  (page {page})")
+                    if args.source == "openaire":
+                        papers = fetcher(query, max_results=min(25, args.n - dispatched + 5), sort_fresh=sort_fresh, page=page)
+                    else:
+                        papers = fetcher(query, max_results=min(25, args.n - dispatched + 5))
+                    if not papers:
+                        break
+                    random.shuffle(papers)
+                    for paper in papers:
+                        if dispatched >= args.n:
+                            break
+                        _async_task.delay(
+                            doi=paper["doi"],
+                            title=paper["title"],
+                            abstract=paper["abstract"],
+                            model=model,
+                            source=paper.get("source", "arxiv"),
+                            remote_url=remote_url if is_remote else "",
+                            remote_api_key=remote_key if is_remote else "",
+                        )
+                        dispatched += 1
+                        log.info(f"  📤 Enqueued {dispatched}/{args.n}: {paper['doi'][:60]}")
+                        time.sleep(args.delay)
+                log.info(f"  ✓ Query '{query[:40]}' complete")
         log.info(f"\n🏁 Done — {dispatched} tasks dispatched to Celery worker")
         return
 
@@ -713,23 +719,35 @@ def run(args: argparse.Namespace) -> None:
             for query in queries:
                 if judged >= args.n:
                     break
-                log.info(f"\n🔍 Query: '{query}'")
-                if args.source == "openaire":
-                    papers = fetcher(query, max_results=min(25, args.n - judged + 5), sort_fresh=sort_fresh)
-                else:
-                    papers = fetcher(query, max_results=min(25, args.n - judged + 5))
-                random.shuffle(papers)
-                for paper in papers:
+                for page in range(1, 6):  # paginate up to 5 pages per query
                     if judged >= args.n:
                         break
-                    ok = process_paper(
-                        paper, model, args.dry_run, db,
-                        remote_url=remote_url, remote_api_key=remote_key,
-                    )
-                    if ok:
-                        judged += 1
-                        log.info(f"  ✅ {judged}/{args.n} annotated")
-                    time.sleep(args.delay)
+                    log.info(f"\n🔍 Query: '{query}'  (page {page})")
+                    if args.source == "openaire":
+                        papers = fetcher(query, max_results=min(25, args.n - judged + 5), sort_fresh=sort_fresh, page=page)
+                    else:
+                        papers = fetcher(query, max_results=min(25, args.n - judged + 5))
+                    if not papers:
+                        break
+                    random.shuffle(papers)
+                    fresh = 0
+                    for paper in papers:
+                        if judged >= args.n:
+                            break
+                        ok = process_paper(
+                            paper, model, args.dry_run, db,
+                            remote_url=remote_url, remote_api_key=remote_key,
+                        )
+                        if ok:
+                            judged += 1
+                            fresh += 1
+                            log.info(f"  ✅ {judged}/{args.n} annotated")
+                        time.sleep(args.delay)
+                    if fresh == 0:
+                        log.info(f"  (all {len(papers)} already judged — next page)")
+                        continue
+                    # Found fresh papers on this page; continue to next page
+                log.info(f"  ✓ Query '{query[:40]}' complete")
     finally:
         if db is not None:
             db.close()
