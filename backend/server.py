@@ -1118,6 +1118,7 @@ def list_papers(
     sort_by: str = "recent",
     label: str = "",
     source: str = "",
+    exclude_model: str = "",
     db: Session = Depends(get_db),
 ):
     # Exclude internal evaluation records (source='dataset') from the graph UI
@@ -1128,6 +1129,13 @@ def list_papers(
         base = base.filter(PaperRecord.initial_intent == label)
     if source:
         base = base.filter(PaperRecord.source == source)
+    if exclude_model:
+        judged = (
+            db.query(DBAnnotation.paper_doi)
+            .filter(DBAnnotation.llm_model == exclude_model)
+            .subquery()
+        )
+        base = base.filter(~PaperRecord.doi.in_(judged))
 
     total = base.count()
 

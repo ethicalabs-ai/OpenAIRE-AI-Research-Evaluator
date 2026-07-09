@@ -404,6 +404,59 @@ def load_dataset_file(path: str) -> list[dict]:
     return records
 
 
+def fetch_remote_catalog(
+    api_url: str,
+    api_key: str,
+    model: str,
+    limit: int,
+) -> list[dict]:
+    """Fetch papers from the remote server, excluding those already judged by model."""
+    papers: list[dict] = []
+    offset = 0
+    page_size = min(limit, 100)
+
+    while len(papers) < limit:
+        r = requests.get(
+            f"{api_url.rstrip('/')}/api/annotations/papers",
+            params={
+                "limit": page_size,
+                "offset": offset,
+                "exclude_model": model,
+                "sort_by": "recent",
+            },
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=30,
+        )
+        if r.status_code == 401:
+            log.error("Remote catalog: invalid API key")
+            break
+        if not r.ok:
+            log.error(f"Remote catalog: HTTP {r.status_code}")
+            break
+
+        data = r.json()
+        page = data.get("papers", [])
+        total = data.get("total", 0)
+
+        for p in page:
+            papers.append(
+                {
+                    "doi": p["doi"],
+                    "title": p["title"],
+                    "abstract": p["abstract"],
+                    "initial_intent": p.get("initial_intent", "Methodology"),
+                    "source": p.get("source", "catalog"),
+                }
+            )
+
+        offset += len(page)
+        if len(page) < page_size or offset >= total:
+            break
+
+    log.info(f"Remote catalog: {len(papers)} papers fetched (excluding already judged by {model})")
+    return papers
+
+
 def run(args: argparse.Namespace) -> None:
     import random
 
@@ -481,46 +534,65 @@ def run(args: argparse.Namespace) -> None:
                 log.info(f"  📤 Enqueued {dispatched}/{min(args.n, len(papers))}: {paper['doi'][:60]}")
                 time.sleep(args.delay)
         elif args.source == "catalog":
-            db = SessionLocal()
-            try:
-                from models import PaperRecord
-
-                total = db.query(PaperRecord).count()
-                judged_dois = (
-                    db.query(DBAnnotation.paper_doi)
-                    .filter(DBAnnotation.llm_model == model)
-                    .scalar_subquery()
-                )
-                all_papers = (
-                    db.query(PaperRecord)
-                    .filter(~PaperRecord.doi.in_(judged_dois))
-                    .order_by(PaperRecord.doi)
-                    .all()
-                )
-                skipped = total - len(all_papers)
-                if skipped:
-                    log.info(
-                        f"Catalog filter: {skipped}/{total} already judged by {model} — excluded upfront"
-                    )
-                target = args.n if args.n > 0 else len(all_papers)
-                for p in all_papers:
+            if is_remote:
+                # Remote catalog: fetch papers from the remote API
+                papers = fetch_remote_catalog(remote_url, remote_key, model, args.n)
+                target = args.n if args.n > 0 else len(papers)
+                for paper in papers:
                     if dispatched >= target:
                         break
                     _async_task.delay(
-                        doi=p.doi,
-                        title=p.title,
-                        abstract=p.abstract,
+                        doi=paper["doi"],
+                        title=paper["title"],
+                        abstract=paper["abstract"],
                         model=model,
-                        initial_intent=p.initial_intent or "Methodology",
-                        source=p.source or "catalog",
-                        remote_url=remote_url if is_remote else "",
-                        remote_api_key=remote_key if is_remote else "",
+                        initial_intent=paper.get("initial_intent", "Methodology"),
+                        source=paper.get("source", "catalog"),
+                        remote_url=remote_url,
+                        remote_api_key=remote_key,
                     )
                     dispatched += 1
-                    log.info(f"  📤 Enqueued {dispatched}/{target}: {p.doi[:60]}")
+                    log.info(f"  📤 Enqueued {dispatched}/{target}: {paper['doi'][:60]}")
                     time.sleep(args.delay)
-            finally:
-                db.close()
+            else:
+                db = SessionLocal()
+                try:
+                    from models import PaperRecord
+
+                    total = db.query(PaperRecord).count()
+                    judged_dois = (
+                        db.query(DBAnnotation.paper_doi)
+                        .filter(DBAnnotation.llm_model == model)
+                        .scalar_subquery()
+                    )
+                    all_papers = (
+                        db.query(PaperRecord)
+                        .filter(~PaperRecord.doi.in_(judged_dois))
+                        .order_by(PaperRecord.doi)
+                        .all()
+                    )
+                    skipped = total - len(all_papers)
+                    if skipped:
+                        log.info(
+                            f"Catalog filter: {skipped}/{total} already judged by {model} — excluded upfront"
+                        )
+                    target = args.n if args.n > 0 else len(all_papers)
+                    for p in all_papers:
+                        if dispatched >= target:
+                            break
+                        _async_task.delay(
+                            doi=p.doi,
+                            title=p.title,
+                            abstract=p.abstract,
+                            model=model,
+                            initial_intent=p.initial_intent or "Methodology",
+                            source=p.source or "catalog",
+                        )
+                        dispatched += 1
+                        log.info(f"  📤 Enqueued {dispatched}/{target}: {p.doi[:60]}")
+                        time.sleep(args.delay)
+                finally:
+                    db.close()
         else:
             fetcher = fetch_arxiv if args.source == "arxiv" else fetch_openaire
             queries = list(SEARCH_QUERIES)
@@ -575,45 +647,60 @@ def run(args: argparse.Namespace) -> None:
                     log.info(f"  ✅ {judged}/{min(args.n, len(papers))} evaluated")
                 time.sleep(args.delay)
         elif args.source == "catalog":
-            # ── Catalog mode: judge every paper in the local database ───────
-            from models import PaperRecord
+            # ── Catalog mode ────────────────────────────────────────────────
+            if is_remote:
+                papers = fetch_remote_catalog(remote_url, remote_key, model, args.n)
+                target = args.n if args.n > 0 else len(papers)
+                for paper in papers:
+                    if judged >= target:
+                        break
+                    ok = process_paper(
+                        paper, model, args.dry_run, None,
+                        remote_url=remote_url, remote_api_key=remote_key,
+                    )
+                    if ok:
+                        judged += 1
+                        log.info(f"  ✅ {judged}/{target} annotated")
+                    time.sleep(args.delay)
+            else:
+                from models import PaperRecord
 
-            total = db.query(PaperRecord).count()
-            judged_dois = (
-                db.query(DBAnnotation.paper_doi)
-                .filter(DBAnnotation.llm_model == model)
-                .scalar_subquery()
-            )
-            all_papers = (
-                db.query(PaperRecord)
-                .filter(~PaperRecord.doi.in_(judged_dois))
-                .order_by(PaperRecord.doi)
-                .all()
-            )
-            skipped = total - len(all_papers)
-            if skipped:
-                log.info(
-                    f"Catalog filter: {skipped}/{total} already judged by {model} — excluded upfront"
+                total = db.query(PaperRecord).count()
+                judged_dois = (
+                    db.query(DBAnnotation.paper_doi)
+                    .filter(DBAnnotation.llm_model == model)
+                    .scalar_subquery()
                 )
-            target = args.n if args.n > 0 else len(all_papers)
-            for p in all_papers:
-                if judged >= target:
-                    break
-                paper = {
-                    "doi": p.doi,
-                    "title": p.title,
-                    "abstract": p.abstract,
-                    "initial_intent": p.initial_intent or "Methodology",
-                    "source": p.source or "catalog",
-                }
-                ok = process_paper(
-                    paper, model, args.dry_run, db,
-                    remote_url=remote_url, remote_api_key=remote_key,
+                all_papers = (
+                    db.query(PaperRecord)
+                    .filter(~PaperRecord.doi.in_(judged_dois))
+                    .order_by(PaperRecord.doi)
+                    .all()
                 )
-                if ok:
-                    judged += 1
-                    log.info(f"  ✅ {judged}/{target} annotated")
-                time.sleep(args.delay)
+                skipped = total - len(all_papers)
+                if skipped:
+                    log.info(
+                        f"Catalog filter: {skipped}/{total} already judged by {model} — excluded upfront"
+                    )
+                target = args.n if args.n > 0 else len(all_papers)
+                for p in all_papers:
+                    if judged >= target:
+                        break
+                    paper = {
+                        "doi": p.doi,
+                        "title": p.title,
+                        "abstract": p.abstract,
+                        "initial_intent": p.initial_intent or "Methodology",
+                        "source": p.source or "catalog",
+                    }
+                    ok = process_paper(
+                        paper, model, args.dry_run, db,
+                        remote_url=remote_url, remote_api_key=remote_key,
+                    )
+                    if ok:
+                        judged += 1
+                        log.info(f"  ✅ {judged}/{target} annotated")
+                    time.sleep(args.delay)
         else:
             # ── Live source mode (arxiv / openaire) ─────────────────────────
             fetcher = fetch_arxiv if args.source == "arxiv" else fetch_openaire
