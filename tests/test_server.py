@@ -71,7 +71,7 @@ def test_mcp_rejects_wrong_token(client):
 
 def test_mcp_accepts_valid_token(client, monkeypatch):
     """MCP endpoint accepts valid Bearer token."""
-    monkeypatch.setattr("server.MCP_API_KEY", "test-key")
+    monkeypatch.setattr("server.API_KEY", "test-key")
 
     # Mock the Celery task to avoid Redis dependency
     with patch("tasks.classify_mcp") as mock_task:

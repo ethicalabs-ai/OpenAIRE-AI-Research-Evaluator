@@ -23,7 +23,7 @@ from auth_utils import (
     require_current_user,
 )
 from celery_app import celery_app
-from config import EXPORT_ENABLED
+from config import API_KEY, EXPORT_ENABLED
 from database import get_db
 from fastapi import Depends, Request, Response, Header
 from intent_classifier import classify_paper, get_classifier, is_loaded
@@ -1282,6 +1282,78 @@ def cast_vote(req: VoteRequest, request: Request, db: Session = Depends(get_db))
     return {"message": "Vote registered successfully"}
 
 
+class JudgeAnnotationRequest(BaseModel):
+    doi: str
+    title: str
+    abstract: str
+    initial_intent: str = None
+    source: str = "arxiv"
+    proposed_label: str = None
+    is_flagged: bool = False
+    flag_reason: str = None
+    comment: str = None
+    llm_model: str
+
+
+@app.post("/api/annotations/judge")
+def judge_annotation(
+    req: JudgeAnnotationRequest,
+    authorization: str = Header(default=""),
+    db: Session = Depends(get_db),
+):
+    """Persist an LLM judge verdict. Bearer-token authenticated.
+
+    Creates the PaperRecord if it doesn't exist and writes an LLM annotation.
+    Skips if this model has already judged this paper (idempotent).
+    """
+    token = authorization.removeprefix("Bearer ").strip()
+    if token != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    clean_doi = sanitize_doi(req.doi)
+    if not clean_doi:
+        raise HTTPException(status_code=400, detail="A valid DOI is required")
+
+    # Ensure paper record exists
+    p = db.query(PaperRecord).filter(PaperRecord.doi == clean_doi).first()
+    if not p:
+        p = PaperRecord(
+            doi=clean_doi,
+            title=req.title,
+            abstract=req.abstract,
+            initial_intent=req.initial_intent,
+            source=req.source,
+        )
+        db.add(p)
+        db.flush()
+
+    # Idempotent: skip if this model already judged this paper
+    existing = (
+        db.query(DBAnnotation)
+        .filter(
+            DBAnnotation.paper_doi == clean_doi,
+            DBAnnotation.llm_model == req.llm_model,
+        )
+        .first()
+    )
+    if existing:
+        return {"status": "skipped", "reason": "already judged by this model"}
+
+    annotation = DBAnnotation(
+        paper_doi=clean_doi,
+        user_id=None,
+        llm_model=req.llm_model,
+        annotator_type="llm",
+        proposed_label=req.proposed_label,
+        is_flagged=req.is_flagged,
+        flag_reason=req.flag_reason,
+        comment=req.comment,
+    )
+    db.add(annotation)
+    db.commit()
+    return {"status": "saved"}
+
+
 @app.get("/api/annotations/stats")
 def get_stats(db: Session = Depends(get_db)):
     # Exclude internal evaluation records from public-facing stats
@@ -1388,10 +1460,8 @@ if os.path.exists(STATIC_DIR):
 # MCP (Model Context Protocol) — agent-facing classification via SSE
 # =============================================================================
 
-from config import MCP_API_KEY
 from fastapi.responses import StreamingResponse
 import asyncio
-import time
 
 
 def _sse_event(event: str, data: dict | str) -> str:
@@ -1416,7 +1486,7 @@ async def mcp_classify(
     Auth: Bearer token via Authorization header.
     """
     token = authorization.removeprefix("Bearer ").strip()
-    if token != MCP_API_KEY:
+    if token != API_KEY:
         return JSONResponse(
             {"error": "invalid api_key"}, status_code=401
         )

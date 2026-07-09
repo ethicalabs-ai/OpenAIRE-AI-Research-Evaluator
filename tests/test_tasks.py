@@ -1,7 +1,6 @@
 import os
 import sys
 
-import pytest
 
 # Ensure backend directory is in path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend")))
@@ -191,7 +190,6 @@ def test_load_search_queries_from_file(tmp_path):
     topics_file = tmp_path / "topics.txt"
     topics_file.write_text("query one\nquery two\n\n# comment\nquery three\n")
 
-    from judge_cli import _load_search_queries as loader
 
     # Patch the candidate paths to point at our temp file
     import judge_cli
@@ -211,7 +209,6 @@ def test_load_search_queries_from_file(tmp_path):
 
 def test_load_search_queries_missing_file():
     """_load_search_queries returns empty list when no file found."""
-    from judge_cli import _load_search_queries as loader
 
     import judge_cli
 

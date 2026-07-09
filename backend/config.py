@@ -21,9 +21,16 @@ LLM_JUDGE_DEFAULT_MODEL: str = os.getenv(
 EXPORT_ENABLED: bool = os.getenv("EXPORT_ENABLED", "").lower() in ("1", "true", "yes")
 
 # =============================================================================
-# MCP (Model Context Protocol) — agent-facing classification endpoint
+# API Key — shared secret for agent-facing endpoints (MCP SSE + judge annotations)
 # =============================================================================
-# Global API key shared by all MCP clients. Set to a strong random value.
-MCP_API_KEY: str = os.getenv(
-    "MCP_API_KEY", "echo-dsrn-mcp-change-me-in-production"
+# Single API key for machine-to-machine endpoints.
+# Set to a strong random value in production.
+API_KEY: str = os.getenv(
+    "API_KEY", "echo-dsrn-mcp-change-me-in-production"
 )
+
+# =============================================================================
+# Remote Judge API — URL of the deployed server for remote annotation persistence
+# =============================================================================
+# Used by judge_cli.py --remote mode to POST annotations to the deployed server.
+JUDGE_API_URL: str = os.getenv("JUDGE_API_URL", "")

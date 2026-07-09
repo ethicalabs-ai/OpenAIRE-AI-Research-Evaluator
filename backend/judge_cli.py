@@ -30,7 +30,7 @@ import xml.etree.ElementTree as ET  # noqa: E402
 from pathlib import Path
 
 import requests  # noqa: E402
-from config import LLM_JUDGE_DEFAULT_MODEL  # noqa: E402
+from config import API_KEY, JUDGE_API_URL, LLM_JUDGE_DEFAULT_MODEL  # noqa: E402
 from database import SessionLocal  # noqa: E402
 from intent_classifier import classify_paper  # noqa: E402
 from llm_judge import JudgeVerdict, judge_paper  # noqa: E402
@@ -215,60 +215,108 @@ def fetch_openaire(query: str, max_results: int = 25) -> list[dict]:
 # ── Core logic ─────────────────────────────────────────────────────────────────
 
 
+def post_annotation_remote(
+    paper: dict,
+    verdict: JudgeVerdict,
+    model: str,
+    api_url: str,
+    api_key: str,
+) -> str:
+    """POST an annotation to a remote server. Returns 'saved', 'skipped', or 'error'."""
+    url = api_url.rstrip("/") + "/api/annotations/judge"
+    payload = {
+        "doi": paper["doi"],
+        "title": paper["title"],
+        "abstract": paper["abstract"],
+        "initial_intent": paper.get("initial_intent", "Methodology"),
+        "source": paper.get("source", "arxiv"),
+        "proposed_label": verdict.proposed_label,
+        "is_flagged": verdict.is_flagged,
+        "flag_reason": verdict.flag_reason,
+        "comment": f"[{verdict.confidence.upper()} confidence] {verdict.rationale}",
+        "llm_model": model,
+    }
+    try:
+        r = requests.post(
+            url,
+            json=payload,
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=30,
+        )
+        if r.status_code == 401:
+            log.error("  ❌ Remote rejected: invalid API key")
+            return "error"
+        if not r.ok:
+            log.error(f"  ❌ Remote returned {r.status_code}: {r.text[:200]}")
+            return "error"
+        result = r.json()
+        return result.get("status", "error")
+    except requests.RequestException as e:
+        log.error(f"  ❌ Remote request failed: {e}")
+        return "error"
+
+
 def process_paper(
     paper: dict,
     model: str,
     dry_run: bool,
     db,
+    *,
+    remote_url: str = "",
+    remote_api_key: str = "",
 ) -> bool:
     """Classify + judge a single paper. Returns True if an annotation was saved."""
     doi = paper["doi"].strip().lower().removeprefix("https://doi.org/")
     title = paper["title"]
     abstract = paper["abstract"]
+    is_remote = bool(remote_url and remote_api_key)
 
-    # ── 1. Skip if already judged by this LLM model ──────────────────────────
-    existing = (
-        db.query(DBAnnotation)
-        .filter(DBAnnotation.paper_doi == doi, DBAnnotation.llm_model == model)
-        .first()
-    )
-    if existing:
-        return False
+    # ── 1. Skip if already judged (local-DB only; remote endpoint is idempotent) ─
+    if not is_remote:
+        existing = (
+            db.query(DBAnnotation)
+            .filter(DBAnnotation.paper_doi == doi, DBAnnotation.llm_model == model)
+            .first()
+        )
+        if existing:
+            return False
 
-    # ── 2. Ensure paper record exists ────────────────────────────────────────
-    p = db.query(PaperRecord).filter(PaperRecord.doi == doi).first()
-    if not p:
-        # For dataset source the label comes from the file (ground truth);
-        # for live sources we run Echo classification.
-        initial_intent = (
-            paper.get("initial_intent") or classify_paper(title, abstract).label
-        )
-        p = PaperRecord(
-            doi=doi,
-            title=title,
-            abstract=abstract,
-            initial_intent=initial_intent,
-            source=paper.get("source", "arxiv"),
-        )
-        if not dry_run:
-            db.add(p)
-            try:
-                db.flush()
-            except Exception:
-                # Another concurrent session inserted the same DOI first.
-                # Roll back the failed insert and re-fetch the existing record.
-                db.rollback()
-                p = db.query(PaperRecord).filter(PaperRecord.doi == doi).first()
-                if p is None:
-                    log.warning(
-                        f"  ⚠ Could not resolve DOI conflict for {doi} — skipping"
-                    )
-                    return False
-                initial_intent = p.initial_intent or "Methodology"
-        log.info(f"  📄 New paper: {doi[:60]}  →  {initial_intent}")
+    # ── 2. Determine initial_intent ──────────────────────────────────────────
+    if not is_remote:
+        # Local mode: ensure paper record exists in the local DB
+        p = db.query(PaperRecord).filter(PaperRecord.doi == doi).first()
+        if not p:
+            initial_intent = (
+                paper.get("initial_intent") or classify_paper(title, abstract).label
+            )
+            p = PaperRecord(
+                doi=doi,
+                title=title,
+                abstract=abstract,
+                initial_intent=initial_intent,
+                source=paper.get("source", "arxiv"),
+            )
+            if not dry_run:
+                db.add(p)
+                try:
+                    db.flush()
+                except Exception:
+                    db.rollback()
+                    p = db.query(PaperRecord).filter(PaperRecord.doi == doi).first()
+                    if p is None:
+                        log.warning(
+                            f"  ⚠ Could not resolve DOI conflict for {doi} — skipping"
+                        )
+                        return False
+                    initial_intent = p.initial_intent or "Methodology"
+            log.info(f"  📄 New paper: {doi[:60]}  →  {initial_intent}")
+        else:
+            initial_intent = p.initial_intent or "Methodology"
+            log.info(f"  📄 Existing: {doi[:60]}  →  {initial_intent}")
     else:
-        initial_intent = p.initial_intent or "Methodology"
-        log.info(f"  📄 Existing: {doi[:60]}  →  {initial_intent}")
+        # Remote mode: run Echo classification locally; server creates PaperRecord
+        initial_intent = paper.get("initial_intent") or classify_paper(title, abstract).label
+        log.info(f"  📄 {doi[:60]}  →  {initial_intent}")
 
     # ── 3. Call LLM judge ────────────────────────────────────────────────────
     try:
@@ -290,6 +338,14 @@ def process_paper(
         return True
 
     # ── 4. Persist annotation ─────────────────────────────────────────────────
+    if is_remote:
+        status = post_annotation_remote(paper, verdict, model, remote_url, remote_api_key)
+        if status == "saved":
+            return True
+        if status == "skipped":
+            log.info(f"  ⏭️ Already judged (remote): {doi[:60]}")
+        return False
+
     annotation = DBAnnotation(
         paper_doi=doi,
         user_id=None,
@@ -374,6 +430,16 @@ def run(args: argparse.Namespace) -> None:
 
     model = args.model
     mode = "ASYNC (Celery)" if getattr(args, "async_mode", False) else "SYNC"
+    remote_url = getattr(args, "api_url", "") or JUDGE_API_URL
+    remote_key = getattr(args, "api_key", "") or API_KEY
+    is_remote = bool(getattr(args, "remote", False))
+
+    if is_remote and not remote_url:
+        log.error("--api-url (or JUDGE_API_URL env var) is required with --remote")
+        return
+    if is_remote and not remote_key:
+        log.error("--api-key (or API_KEY env var) is required with --remote")
+        return
 
     log.info("═══ LLM-as-Judge CLI ═══")
     log.info(f"Mode   : {mode}")
@@ -381,6 +447,8 @@ def run(args: argparse.Namespace) -> None:
     log.info(f"Target : {args.n} annotations")
     log.info(f"Model  : {model}")
     log.info(f"Delay  : {args.delay}s between dispatches")
+    if is_remote:
+        log.info(f"Remote : {remote_url}")
     if not getattr(args, "async_mode", False):
         log.info(f"Dry-run: {args.dry_run}")
 
@@ -406,6 +474,8 @@ def run(args: argparse.Namespace) -> None:
                     model=model,
                     initial_intent=paper.get("initial_intent"),
                     source=paper.get("source", "dataset"),
+                    remote_url=remote_url if is_remote else "",
+                    remote_api_key=remote_key if is_remote else "",
                 )
                 dispatched += 1
                 log.info(f"  📤 Enqueued {dispatched}/{min(args.n, len(papers))}: {paper['doi'][:60]}")
@@ -443,6 +513,8 @@ def run(args: argparse.Namespace) -> None:
                         model=model,
                         initial_intent=p.initial_intent or "Methodology",
                         source=p.source or "catalog",
+                        remote_url=remote_url if is_remote else "",
+                        remote_api_key=remote_key if is_remote else "",
                     )
                     dispatched += 1
                     log.info(f"  📤 Enqueued {dispatched}/{target}: {p.doi[:60]}")
@@ -468,6 +540,8 @@ def run(args: argparse.Namespace) -> None:
                         abstract=paper["abstract"],
                         model=model,
                         source=paper.get("source", "arxiv"),
+                        remote_url=remote_url if is_remote else "",
+                        remote_api_key=remote_key if is_remote else "",
                     )
                     dispatched += 1
                     log.info(f"  📤 Enqueued {dispatched}/{args.n}: {paper['doi'][:60]}")
@@ -475,8 +549,8 @@ def run(args: argparse.Namespace) -> None:
         log.info(f"\n🏁 Done — {dispatched} tasks dispatched to Celery worker")
         return
 
-    # ── Sync mode (original behaviour) ─────────────────────────────────────
-    db = SessionLocal()
+    # ── Sync mode ─────────────────────────────────────────────────────────
+    db = SessionLocal() if not is_remote else None
     judged = 0
 
     try:
@@ -492,7 +566,10 @@ def run(args: argparse.Namespace) -> None:
             for paper in papers:
                 if judged >= args.n:
                     break
-                ok = process_paper(paper, model, args.dry_run, db)
+                ok = process_paper(
+                    paper, model, args.dry_run, db,
+                    remote_url=remote_url, remote_api_key=remote_key,
+                )
                 if ok:
                     judged += 1
                     log.info(f"  ✅ {judged}/{min(args.n, len(papers))} evaluated")
@@ -529,7 +606,10 @@ def run(args: argparse.Namespace) -> None:
                     "initial_intent": p.initial_intent or "Methodology",
                     "source": p.source or "catalog",
                 }
-                ok = process_paper(paper, model, args.dry_run, db)
+                ok = process_paper(
+                    paper, model, args.dry_run, db,
+                    remote_url=remote_url, remote_api_key=remote_key,
+                )
                 if ok:
                     judged += 1
                     log.info(f"  ✅ {judged}/{target} annotated")
@@ -548,13 +628,17 @@ def run(args: argparse.Namespace) -> None:
                 for paper in papers:
                     if judged >= args.n:
                         break
-                    ok = process_paper(paper, model, args.dry_run, db)
+                    ok = process_paper(
+                        paper, model, args.dry_run, db,
+                        remote_url=remote_url, remote_api_key=remote_key,
+                    )
                     if ok:
                         judged += 1
                         log.info(f"  ✅ {judged}/{args.n} annotated")
                     time.sleep(args.delay)
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
     log.info(f"\n🏁 Done — {judged} annotations saved (dry_run={args.dry_run})")
 
@@ -626,6 +710,24 @@ def main() -> None:
         default=None,
         metavar="KEY",
         help="Override LLM API key (default: value from .env / config.py).",
+    )
+    parser.add_argument(
+        "--remote",
+        action="store_true",
+        default=False,
+        help="POST annotations to a remote server instead of writing the local database.",
+    )
+    parser.add_argument(
+        "--api-url",
+        default=None,
+        metavar="URL",
+        help="Remote judge API base URL (env: JUDGE_API_URL). Required with --remote.",
+    )
+    parser.add_argument(
+        "--api-key",
+        default=None,
+        metavar="KEY",
+        help="Bearer token for the remote judge API (env: API_KEY). Required with --remote.",
     )
     args = parser.parse_args()
     # Apply device before the classifier singleton loads

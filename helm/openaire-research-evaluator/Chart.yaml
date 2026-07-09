@@ -2,5 +2,5 @@ apiVersion: v2
 name: openaire-research-evaluator
 description: OpenAIRE-AI-Research-Evaluator — Multi-model LLM-as-Judge pipeline for research intent classification
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "1.0.0"
