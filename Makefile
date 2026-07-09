@@ -148,3 +148,26 @@ reset-db: ## Delete and recreate the SQLite database
 	rm -f data/collaborative.db data/collaborative.db-shm data/collaborative.db-wal
 	uv run alembic -c backend/alembic.ini upgrade head
 	@echo "Database reset complete."
+
+DB_DUMP_DIR := data/dumps
+PASS ?= postgres
+
+db-dump: ## Dump k3s PostgreSQL to data/dumps/ (Usage: make db-dump [PASS=postgres])
+	@mkdir -p $(DB_DUMP_DIR)
+	kubectl exec -i deployment/evaluator-openaire-research-evaluator-postgres -- \
+	  env PGPASSWORD=$(PASS) pg_dump -U postgres -d echo_dsrn --clean --if-exists \
+	  > $(DB_DUMP_DIR)/echo_dsrn-$$(date +%Y%m%d-%H%M%S).sql
+	@ls -t $(DB_DUMP_DIR)/*.sql | head -1 | xargs -I{} echo "Dump: {}"
+
+db-load: ## Load a PostgreSQL dump into k3s (Usage: make db-load FILE=<path> [PASS=postgres])
+	@if [ -z "$(FILE)" ]; then \
+	  FILE=$$(ls -t $(DB_DUMP_DIR)/*.sql 2>/dev/null | head -1); \
+	fi; \
+	if [ -z "$$FILE" ]; then \
+	  echo "No dump file found. Usage: make db-load FILE=<path>"; \
+	  exit 1; \
+	fi; \
+	echo "Loading: $$FILE"; \
+	kubectl exec -i deployment/evaluator-openaire-research-evaluator-postgres -- \
+	  env PGPASSWORD=$(PASS) psql -U postgres -d echo_dsrn < "$$FILE"
+	@echo "Done."
