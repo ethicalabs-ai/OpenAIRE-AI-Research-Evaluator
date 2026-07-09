@@ -5,6 +5,7 @@ tags:
 - research-intent
 - echo-dsrn
 - openaire-2026-hackathon
+- vllm
 base_model:
 - ethicalabs/Echo-DSRN-114M-v0.1.2
 license: apache-2.0
@@ -96,11 +97,13 @@ The model is gated — [request access](https://huggingface.co/ethicalabs/Echo-D
 | Vocab size | 32,017 tokens |
 | Precision | bfloat16 |
 | Base model | Echo-DSRN-114M-v0.1.2 |
-| GPU | AMD Radeon RX 7900 XTX (ROCm 7.2) |
+| GPU | AMD Radeon AI Pro R9700 (ROCm 7.2) |
 
 ## Building a better dataset — we need you
 
-This model is actively powering the live classifier at [openaire-2026.ethicalabs.ai](https://openaire-2026.ethicalabs.ai/). Every paper classified on the platform becomes part of a growing annotation dataset stored in the `data/collaborative.db` golden database.
+This model is actively powering the live classifier at [openaire-2026.ethicalabs.ai](https://openaire-2026.ethicalabs.ai/).
+
+Every paper classified on the platform becomes part of a growing annotation dataset stored in the system.
 
 **We need human contributors**, not just LLM judges. If you're a researcher, librarian, or domain expert, you can:
 
@@ -109,19 +112,25 @@ This model is actively powering the live classifier at [openaire-2026.ethicalabs
 - Save papers to your private history
 - Log in with your HuggingFace account
 
-The multi-model LLM-as-Judge pipeline (11 LLMs across Qwen, Gemma, GPT-OSS, and other families) validates Echo-DSRN predictions. But LLM consensus is no substitute for human expertise — your domain knowledge helps us catch edge cases the models miss.
+The multi-model LLM-as-Judge pipeline (11 LLMs across Qwen, Gemma, GPT-OSS, and other families) validates Echo-DSRN predictions.
+
+But LLM consensus is no substitute for human expertise — your domain knowledge helps us catch edge cases the models miss.
 
 ## After the hackathon
 
-The current model will be **fine-tuned on the collected annotation dataset** and re-released as `v0.2.0` after the hackathon concludes (submission deadline: 20 August 2026). The fine-tuned model will benefit from:
+The current model will be **fine-tuned on the collected annotation dataset** and re-released as `v0.1.4` after the hackathon concludes (submission deadline: 20 August 2026).
 
-- Thousands of human + LLM annotations from the OpenAIRE Graph stream
-- Multi-model consensus labels from 11 LLM judges
-- Community feedback from the Collab Hub
+The fine-tuned model will benefit from:
+
+- Thousands of LLM + Human annotations from the OpenAIRE Graph stream.
+- Multi-model consensus labels from LLM judges.
+- Community feedback from the Collab Hub.
 
 ## Data provenance
 
-Training data for the current version includes curated records from PubMed, Semantic Scholar, Papers With Code, and arXiv. The live application streams additional publication metadata from the [OpenAIRE Graph API](https://graph.openaire.eu), licensed under **CC BY 4.0**.
+Training data for the current version includes curated records from PubMed, Semantic Scholar, Papers With Code, and arXiv.
+
+The live application streams additional publication metadata from the [OpenAIRE Graph API](https://graph.openaire.eu), licensed under **CC BY 4.0**.
 
 ## License
 
@@ -136,3 +145,4 @@ If you use this model or the annotation dataset, please cite:
 > _OpenAIRE-AI-Research-Evaluator — Multi-model LLM-as-Judge pipeline for research intent classification._
 > ethicalabs.ai, 2026. Apache-2.0 / CC-BY 4.0.
 > [github.com/ethicalabs-ai/OpenAIRE-AI-Research-Evaluator](https://github.com/ethicalabs-ai/OpenAIRE-AI-Research-Evaluator)
+
