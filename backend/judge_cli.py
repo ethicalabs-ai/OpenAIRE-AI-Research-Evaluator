@@ -90,18 +90,20 @@ SEARCH_QUERIES = _load_search_queries()
 # ── Paper fetchers ─────────────────────────────────────────────────────────────
 
 
-def fetch_arxiv(query: str, max_results: int = 25) -> list[dict]:
+def fetch_arxiv(query: str, max_results: int = 25, *, sort_fresh: bool = False) -> list[dict]:
     """Fetch papers from arXiv API."""
+    params: dict = {
+        "search_query": f"ti:{query} OR abs:{query}",
+        "max_results": max_results,
+    }
+    if sort_fresh:
+        params["sortBy"] = "submittedDate"
+        params["sortOrder"] = "descending"
+    else:
+        params["sortBy"] = "relevance"
+
     try:
-        r = requests.get(
-            ARXIV_API,
-            params={
-                "search_query": f"ti:{query} OR abs:{query}",
-                "max_results": max_results,
-                "sortBy": "relevance",
-            },
-            timeout=15,
-        )
+        r = requests.get(ARXIV_API, params=params, timeout=15)
         r.raise_for_status()
     except Exception as e:
         log.warning(f"arXiv fetch failed for '{query}': {e}")
@@ -149,16 +151,16 @@ def fetch_arxiv(query: str, max_results: int = 25) -> list[dict]:
     return papers
 
 
-def fetch_openaire(query: str, max_results: int = 25) -> list[dict]:
+def fetch_openaire(query: str, max_results: int = 25, *, sort_fresh: bool = False) -> list[dict]:
     """Fetch papers from OpenAIRE API."""
     import re
 
+    params: dict = {"title": query, "format": "json", "page": 1, "size": max_results}
+    if sort_fresh:
+        params["sortBy"] = "dateofcollection,descending"
+
     try:
-        r = requests.get(
-            OPENAIRE_API,
-            params={"title": query, "format": "json", "page": 1, "size": max_results},
-            timeout=20,
-        )
+        r = requests.get(OPENAIRE_API, params=params, timeout=20)
         r.raise_for_status()
     except Exception as e:
         log.warning(f"OpenAIRE fetch failed for '{query}': {e}")
@@ -486,6 +488,7 @@ def run(args: argparse.Namespace) -> None:
     remote_url = getattr(args, "api_url", "") or JUDGE_API_URL
     remote_key = getattr(args, "api_key", "") or API_KEY
     is_remote = bool(getattr(args, "remote", False))
+    sort_fresh = getattr(args, "sort", "default") == "fresh"
 
     if is_remote and not remote_url:
         log.error("--api-url (or JUDGE_API_URL env var) is required with --remote")
@@ -601,7 +604,7 @@ def run(args: argparse.Namespace) -> None:
                 if dispatched >= args.n:
                     break
                 log.info(f"\n🔍 Query: '{query}'")
-                papers = fetcher(query, max_results=min(25, args.n - dispatched + 5))
+                papers = fetcher(query, max_results=min(25, args.n - dispatched + 5), sort_fresh=sort_fresh)
                 random.shuffle(papers)
                 for paper in papers:
                     if dispatched >= args.n:
@@ -710,7 +713,7 @@ def run(args: argparse.Namespace) -> None:
                 if judged >= args.n:
                     break
                 log.info(f"\n🔍 Query: '{query}'")
-                papers = fetcher(query, max_results=min(25, args.n - judged + 5))
+                papers = fetcher(query, max_results=min(25, args.n - judged + 5), sort_fresh=sort_fresh)
                 random.shuffle(papers)
                 for paper in papers:
                     if judged >= args.n:
@@ -816,8 +819,13 @@ def main() -> None:
         metavar="KEY",
         help="Bearer token for the remote judge API (env: API_KEY). Required with --remote.",
     )
+    parser.add_argument(
+        "--sort",
+        choices=["default", "fresh"],
+        default="default",
+        help="Sort order for paper discovery: default (relevance) or fresh (newest first).",
+    )
     args = parser.parse_args()
-    # Apply device before the classifier singleton loads
     import os as _os
 
     _os.environ["INTENT_CLF_DEVICE"] = args.device
