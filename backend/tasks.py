@@ -107,7 +107,7 @@ def classify_and_judge(
                 "source": source,
                 "proposed_label": verdict.proposed_label,
                 "is_flagged": verdict.is_flagged,
-                "flag_reason": verdict.flag_reason,
+                "flag_reason": verdict.flag_reason or "",
                 "comment": f"[{verdict.confidence.upper()} confidence] {verdict.rationale}",
                 "llm_model": model,
             }
