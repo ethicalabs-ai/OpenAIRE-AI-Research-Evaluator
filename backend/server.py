@@ -1294,12 +1294,12 @@ class JudgeAnnotationRequest(BaseModel):
     doi: str
     title: str
     abstract: str
-    initial_intent: str = None
+    initial_intent: Optional[str] = None
     source: str = "arxiv"
-    proposed_label: str = None
+    proposed_label: Optional[str] = None
     is_flagged: bool = False
-    flag_reason: str = None
-    comment: str = None
+    flag_reason: Optional[str] = None
+    comment: Optional[str] = None
     llm_model: str
 
 
