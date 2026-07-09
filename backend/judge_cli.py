@@ -90,17 +90,13 @@ SEARCH_QUERIES = _load_search_queries()
 # ── Paper fetchers ─────────────────────────────────────────────────────────────
 
 
-def fetch_arxiv(query: str, max_results: int = 25, *, sort_fresh: bool = False) -> list[dict]:
+def fetch_arxiv(query: str, max_results: int = 25) -> list[dict]:
     """Fetch papers from arXiv API."""
     params: dict = {
         "search_query": f"ti:{query} OR abs:{query}",
         "max_results": max_results,
+        "sortBy": "relevance",
     }
-    if sort_fresh:
-        params["sortBy"] = "submittedDate"
-        params["sortOrder"] = "descending"
-    else:
-        params["sortBy"] = "relevance"
 
     try:
         r = requests.get(ARXIV_API, params=params, timeout=15)
@@ -503,6 +499,8 @@ def run(args: argparse.Namespace) -> None:
     log.info(f"Target : {args.n} annotations")
     log.info(f"Model  : {model}")
     log.info(f"Delay  : {args.delay}s between dispatches")
+    if args.source == "openaire":
+        log.info(f"Sort   : {args.sort}")
     if is_remote:
         log.info(f"Remote : {remote_url}")
     if not getattr(args, "async_mode", False):
@@ -604,7 +602,10 @@ def run(args: argparse.Namespace) -> None:
                 if dispatched >= args.n:
                     break
                 log.info(f"\n🔍 Query: '{query}'")
-                papers = fetcher(query, max_results=min(25, args.n - dispatched + 5), sort_fresh=sort_fresh)
+                if args.source == "openaire":
+                    papers = fetcher(query, max_results=min(25, args.n - dispatched + 5), sort_fresh=sort_fresh)
+                else:
+                    papers = fetcher(query, max_results=min(25, args.n - dispatched + 5))
                 random.shuffle(papers)
                 for paper in papers:
                     if dispatched >= args.n:
@@ -713,7 +714,10 @@ def run(args: argparse.Namespace) -> None:
                 if judged >= args.n:
                     break
                 log.info(f"\n🔍 Query: '{query}'")
-                papers = fetcher(query, max_results=min(25, args.n - judged + 5), sort_fresh=sort_fresh)
+                if args.source == "openaire":
+                    papers = fetcher(query, max_results=min(25, args.n - judged + 5), sort_fresh=sort_fresh)
+                else:
+                    papers = fetcher(query, max_results=min(25, args.n - judged + 5))
                 random.shuffle(papers)
                 for paper in papers:
                     if judged >= args.n:
@@ -822,8 +826,8 @@ def main() -> None:
     parser.add_argument(
         "--sort",
         choices=["default", "fresh"],
-        default="default",
-        help="Sort order for paper discovery: default (relevance) or fresh (newest first).",
+        default="fresh",
+        help="Sort order for OpenAIRE paper discovery: relevance or dateofcollection desc. Only applies to --source openaire.",
     )
     args = parser.parse_args()
     import os as _os
