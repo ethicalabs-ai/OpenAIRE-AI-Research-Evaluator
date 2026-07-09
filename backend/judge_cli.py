@@ -170,7 +170,11 @@ def fetch_openaire(query: str, max_results: int = 25, *, sort_fresh: bool = Fals
         if isinstance(results_raw, dict):
             results_raw = [results_raw]
         for res in results_raw:
-            meta = res.get("metadata", {}).get("oaf:entity", {}).get("oaf:result", {})
+            if not isinstance(res, dict):
+                continue
+            meta = res.get("metadata", {}) or {}
+            meta = meta.get("oaf:entity", {}) or {}
+            meta = meta.get("oaf:result", {}) or {}
             title_obj = meta.get("title", {})
             title = (
                 title_obj[0].get("$", "")
