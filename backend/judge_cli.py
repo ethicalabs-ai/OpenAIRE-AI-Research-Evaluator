@@ -266,6 +266,7 @@ def process_paper(
     *,
     remote_url: str = "",
     remote_api_key: str = "",
+    force: bool = False,
 ) -> bool:
     """Classify + judge a single paper. Returns True if an annotation was saved."""
     doi = paper["doi"].strip().lower().removeprefix("https://doi.org/")
@@ -274,7 +275,7 @@ def process_paper(
     is_remote = bool(remote_url and remote_api_key)
 
     # ── 1. Skip if already judged (local-DB only; remote endpoint is idempotent) ─
-    if not is_remote:
+    if not is_remote and not force:
         existing = (
             db.query(DBAnnotation)
             .filter(DBAnnotation.paper_doi == doi, DBAnnotation.llm_model == model)
@@ -490,6 +491,7 @@ def run(args: argparse.Namespace) -> None:
     remote_key = getattr(args, "api_key", "") or API_KEY
     is_remote = bool(getattr(args, "remote", False))
     sort_fresh = getattr(args, "sort", "default") == "fresh"
+    force = getattr(args, "force", False)
 
     if is_remote and not remote_url:
         log.error("--api-url (or JUDGE_API_URL env var) is required with --remote")
@@ -656,6 +658,7 @@ def run(args: argparse.Namespace) -> None:
                 ok = process_paper(
                     paper, model, args.dry_run, db,
                     remote_url=remote_url, remote_api_key=remote_key,
+                    force=force,
                 )
                 if ok:
                     judged += 1
@@ -672,6 +675,7 @@ def run(args: argparse.Namespace) -> None:
                     ok = process_paper(
                         paper, model, args.dry_run, None,
                         remote_url=remote_url, remote_api_key=remote_key,
+                        force=force,
                     )
                     if ok:
                         judged += 1
@@ -711,6 +715,7 @@ def run(args: argparse.Namespace) -> None:
                     ok = process_paper(
                         paper, model, args.dry_run, db,
                         remote_url=remote_url, remote_api_key=remote_key,
+                        force=force,
                     )
                     if ok:
                         judged += 1
@@ -742,6 +747,7 @@ def run(args: argparse.Namespace) -> None:
                         ok = process_paper(
                             paper, model, args.dry_run, db,
                             remote_url=remote_url, remote_api_key=remote_key,
+                            force=force,
                         )
                         if ok:
                             judged += 1
@@ -852,11 +858,13 @@ def main() -> None:
         default="fresh",
         help="Sort order for OpenAIRE paper discovery: relevance or dateofcollection desc. Only applies to --source openaire.",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Re-judge papers even if already annotated by this model.",
+    )
     args = parser.parse_args()
-    import os as _os
-
-    _os.environ["INTENT_CLF_DEVICE"] = args.device
-    run(args)
 
 
 if __name__ == "__main__":

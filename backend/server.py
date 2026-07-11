@@ -1311,8 +1311,8 @@ def judge_annotation(
 ):
     """Persist an LLM judge verdict. Bearer-token authenticated.
 
-    Creates the PaperRecord if it doesn't exist and writes an LLM annotation.
-    Skips if this model has already judged this paper (idempotent).
+    Creates the PaperRecord if it doesn't exist and upserts the annotation.
+    One annotation per (paper_doi, llm_model) — overwrites any existing.
     """
     token = authorization.removeprefix("Bearer ").strip()
     if token != API_KEY:
@@ -1335,7 +1335,7 @@ def judge_annotation(
         db.add(p)
         db.flush()
 
-    # Idempotent: skip if this model already judged this paper
+    # Upsert: overwrite existing annotation for this (doi, model)
     existing = (
         db.query(DBAnnotation)
         .filter(
@@ -1345,19 +1345,22 @@ def judge_annotation(
         .first()
     )
     if existing:
-        return {"status": "skipped", "reason": "already judged by this model"}
-
-    annotation = DBAnnotation(
-        paper_doi=clean_doi,
-        user_id=None,
-        llm_model=req.llm_model,
-        annotator_type="llm",
-        proposed_label=req.proposed_label,
-        is_flagged=req.is_flagged,
-        flag_reason=req.flag_reason,
-        comment=req.comment,
-    )
-    db.add(annotation)
+        existing.proposed_label = req.proposed_label
+        existing.is_flagged = req.is_flagged
+        existing.flag_reason = req.flag_reason
+        existing.comment = req.comment
+    else:
+        annotation = DBAnnotation(
+            paper_doi=clean_doi,
+            user_id=None,
+            llm_model=req.llm_model,
+            annotator_type="llm",
+            proposed_label=req.proposed_label,
+            is_flagged=req.is_flagged,
+            flag_reason=req.flag_reason,
+            comment=req.comment,
+        )
+        db.add(annotation)
     db.commit()
     return {"status": "saved"}
 
