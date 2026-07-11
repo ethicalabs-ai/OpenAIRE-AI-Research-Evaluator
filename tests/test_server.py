@@ -237,3 +237,109 @@ def test_stats_cache_hit(temp_db, monkeypatch):
     assert r1 == {"x": 1}
     assert r2 == {"x": 1}
     assert call_count[0] == 2  # no cache without Redis
+
+
+# ── Judge endpoint tests ──────────────────────────────────────────────────────
+
+
+def test_judge_rejects_no_auth(client):
+    """POST /api/annotations/judge requires Bearer token."""
+    response = client.post(
+        "/api/annotations/judge",
+        json={"doi": "10.1234/test", "title": "T", "abstract": "A",
+              "llm_model": "test-model"},
+    )
+    assert response.status_code == 401
+
+
+def test_judge_rejects_wrong_auth(client, monkeypatch):
+    """POST /api/annotations/judge rejects wrong token."""
+    monkeypatch.setattr("server.API_KEY", "correct-key")
+    response = client.post(
+        "/api/annotations/judge",
+        json={"doi": "10.1234/test", "title": "T", "abstract": "A",
+              "llm_model": "test-model"},
+        headers={"Authorization": "Bearer wrong-key"},
+    )
+    assert response.status_code == 401
+
+
+def test_judge_creates_paper_and_annotation(temp_db, monkeypatch):
+    """Judge endpoint creates PaperRecord + Annotation in one call."""
+    monkeypatch.setattr("server.API_KEY", "test-key")
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    from fastapi.testclient import TestClient
+    import server as _srv
+
+    client = TestClient(_srv.app)
+    response = client.post(
+        "/api/annotations/judge",
+        json={
+            "doi": "10.1234/judge-test", "title": "Judge Test",
+            "abstract": "A novel approach to testing.", "llm_model": "test-model",
+            "initial_intent": "Applied", "proposed_label": "Methodology",
+            "is_flagged": True, "flag_reason": "garbled text",
+            "comment": "[HIGH confidence] Looks good.",
+        },
+        headers={"Authorization": "Bearer test-key"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "saved"
+
+    # Verify in DB
+    from database import SessionLocal
+    from models import PaperRecord, Annotation as DBAnnotation
+    db = SessionLocal()
+    try:
+        p = db.query(PaperRecord).filter(PaperRecord.doi == "10.1234/judge-test").first()
+        assert p is not None
+        assert p.initial_intent == "Applied"
+
+        a = db.query(DBAnnotation).filter(
+            DBAnnotation.paper_doi == "10.1234/judge-test",
+            DBAnnotation.llm_model == "test-model",
+        ).first()
+        assert a is not None
+        assert a.proposed_label == "Methodology"
+        assert a.is_flagged is True
+        assert a.flag_reason == "garbled text"
+    finally:
+        db.close()
+
+
+def test_judge_upserts_existing(temp_db, monkeypatch):
+    """Second POST with same doi+model overwrites, doesn't duplicate."""
+    monkeypatch.setattr("server.API_KEY", "test-key")
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    from fastapi.testclient import TestClient
+    import server as _srv
+
+    client = TestClient(_srv.app)
+    payload = {
+        "doi": "10.1234/judge-upsert", "title": "T", "abstract": "A",
+        "llm_model": "test-model",
+    }
+    headers = {"Authorization": "Bearer test-key"}
+
+    r1 = client.post("/api/annotations/judge", json=payload, headers=headers)
+    assert r1.status_code == 200
+
+    r2 = client.post("/api/annotations/judge", json={
+        **payload, "proposed_label": "Review", "comment": "updated",
+    }, headers=headers)
+    assert r2.status_code == 200
+    assert r2.json()["status"] == "saved"
+
+    from database import SessionLocal
+    from models import Annotation as DBAnnotation
+    db = SessionLocal()
+    try:
+        annotations = db.query(DBAnnotation).filter(
+            DBAnnotation.paper_doi == "10.1234/judge-upsert",
+            DBAnnotation.llm_model == "test-model",
+        ).all()
+        assert len(annotations) == 1
+        assert annotations[0].proposed_label == "Review"
+        assert annotations[0].comment == "updated"
+    finally:
+        db.close()
