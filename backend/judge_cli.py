@@ -316,8 +316,9 @@ def process_paper(
             initial_intent = p.initial_intent or "Methodology"
             log.info(f"  📄 Existing: {doi[:60]}  →  {initial_intent}")
     else:
-        # Remote mode: run Echo classification locally; server creates PaperRecord
-        initial_intent = paper.get("initial_intent") or classify_paper(title, abstract).label
+        # Remote mode: always run Echo classification locally;
+        # ignore paper["initial_intent"] — it's a stale server default.
+        initial_intent = classify_paper(title, abstract).label
         log.info(f"  📄 {doi[:60]}  →  {initial_intent}")
 
     # ── 3. Call LLM judge ────────────────────────────────────────────────────

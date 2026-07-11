@@ -222,3 +222,56 @@ def test_load_search_queries_missing_file():
     judge_cli._load_search_queries = original
 
     assert result == []
+
+
+# ── process_paper remote mode tests ───────────────────────────────────────────
+
+
+def test_process_paper_remote_calls_local_classifier(
+    temp_db, mock_judge_verdict, monkeypatch
+):
+    """Remote mode must call local Echo classifier, ignoring stale server initial_intent."""
+    import judge_cli
+
+    # Track whether classify_paper was called
+    classify_called = [False]
+
+    def fake_classify(title, abstract):
+        classify_called[0] = True
+        from dataclasses import dataclass
+
+        @dataclass
+        class FakeResult:
+            label: str = "Applied"
+            probabilities: dict = None
+
+        return FakeResult()
+
+    monkeypatch.setattr("judge_cli.classify_paper", fake_classify, raising=False)
+    monkeypatch.setattr(
+        "judge_cli.judge_paper",
+        lambda title, abstract, prediction, model, timeout=300: mock_judge_verdict,
+    )
+    monkeypatch.setattr(
+        "judge_cli.post_annotation_remote",
+        lambda paper, verdict, model, url, key: "saved",
+    )
+
+    paper = {
+        "doi": "10.1234/remote-test",
+        "title": "Remote Test",
+        "abstract": "Testing remote mode.",
+        "initial_intent": "Methodology",  # stale server value
+        "source": "catalog",
+    }
+
+    result = judge_cli.process_paper(
+        paper,
+        "test-model",
+        dry_run=False,
+        db=None,
+        remote_url="https://example.com",
+        remote_api_key="test-key",
+    )
+
+    assert classify_called[0], "Echo classifier must be called locally in remote mode"
