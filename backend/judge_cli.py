@@ -872,6 +872,11 @@ def main() -> None:
         help="Re-judge papers even if already annotated by this model.",
     )
     args = parser.parse_args()
+    # Apply device before the classifier singleton loads
+    import os as _os
+
+    _os.environ["INTENT_CLF_DEVICE"] = args.device
+    run(args)
 
 
 if __name__ == "__main__":
