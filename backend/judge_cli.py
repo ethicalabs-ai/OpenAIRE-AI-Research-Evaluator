@@ -413,21 +413,28 @@ def fetch_remote_catalog(
     api_key: str,
     model: str,
     limit: int,
+    *,
+    force: bool = False,
 ) -> list[dict]:
-    """Fetch papers from the remote server, excluding those already judged by model."""
+    """Fetch papers from the remote server, excluding those already judged by model.
+
+    When force=True, includes all papers (no exclude_model filter).
+    """
     papers: list[dict] = []
     offset = 0
     page_size = min(limit, 100)
 
     while len(papers) < limit:
+        params: dict = {
+            "limit": page_size,
+            "offset": offset,
+            "sort_by": "recent",
+        }
+        if not force:
+            params["exclude_model"] = model
         r = requests.get(
             f"{api_url.rstrip('/')}/api/annotations/papers",
-            params={
-                "limit": page_size,
-                "offset": offset,
-                "exclude_model": model,
-                "sort_by": "recent",
-            },
+            params=params,
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=30,
         )
@@ -544,7 +551,7 @@ def run(args: argparse.Namespace) -> None:
         elif args.source == "catalog":
             if is_remote:
                 # Remote catalog: fetch papers from the remote API
-                papers = fetch_remote_catalog(remote_url, remote_key, model, args.n)
+                papers = fetch_remote_catalog(remote_url, remote_key, model, args.n, force=force)
                 target = args.n if args.n > 0 else len(papers)
                 for paper in papers:
                     if dispatched >= target:
@@ -667,7 +674,7 @@ def run(args: argparse.Namespace) -> None:
         elif args.source == "catalog":
             # ── Catalog mode ────────────────────────────────────────────────
             if is_remote:
-                papers = fetch_remote_catalog(remote_url, remote_key, model, args.n)
+                papers = fetch_remote_catalog(remote_url, remote_key, model, args.n, force=force)
                 target = args.n if args.n > 0 else len(papers)
                 for paper in papers:
                     if judged >= target:
