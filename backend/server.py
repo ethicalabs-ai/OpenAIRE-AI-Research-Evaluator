@@ -1365,45 +1365,108 @@ def judge_annotation(
     return {"status": "saved"}
 
 
+# ── Stats cache ───────────────────────────────────────────────────────────────
+
+_STATS_CACHE_TTL = 300  # 5 minutes
+
+def _get_redis():
+    """Lazy Redis connection, reusing Celery REDIS_URL."""
+    try:
+        from celery_app import REDIS_URL
+        import redis
+        return redis.Redis.from_url(REDIS_URL, decode_responses=True, socket_connect_timeout=2)
+    except Exception:
+        return None
+
+
+def _cached(key: str, ttl: int, compute):
+    """Return cached value or compute + store with TTL."""
+    r = _get_redis()
+    if r:
+        try:
+            cached = r.get(key)
+            if cached is not None:
+                return _json.loads(cached)
+        except Exception:
+            pass
+    result = compute()
+    if r:
+        try:
+            r.setex(key, ttl, _json.dumps(result))
+        except Exception:
+            pass
+    return result
+
+
 @app.get("/api/annotations/stats")
 def get_stats(db: Session = Depends(get_db)):
-    # Exclude internal evaluation records from public-facing stats
-    total_papers = db.query(PaperRecord).filter(PaperRecord.source != "dataset").count()
-    total_users = db.query(DBUser).count()
+    from sqlalchemy import func
 
-    # Calculate consensus distribution
-    papers = db.query(PaperRecord).filter(PaperRecord.source != "dataset").all()
-    dist = Counter()
-    flagged_count = 0
+    def _compute():
+        base = db.query(PaperRecord).filter(PaperRecord.source != "dataset")
 
-    for p in papers:
-        flags = [a for a in p.annotations if a.is_flagged == True]
-        if len(flags) > 3:
-            flagged_count += 1
-            continue
+        total_papers = base.count()
+        total_users = db.query(DBUser).count()
 
-        consensus = get_consensus_label(p.annotations)
-        if consensus:
-            dist[consensus] += 1
-        elif p.initial_intent:
-            dist[p.initial_intent] += 1
+        # Flagged: papers with > 3 flag annotations — single subquery
+        flag_sub = (
+            db.query(DBAnnotation.paper_doi, func.count().label("flag_count"))
+            .filter(DBAnnotation.is_flagged == True)  # noqa: E712
+            .group_by(DBAnnotation.paper_doi)
+            .having(func.count() > 3)
+            .subquery()
+        )
+        flagged_count = base.filter(
+            PaperRecord.doi.in_(db.query(flag_sub.c.paper_doi))
+        ).count()
 
-    human_annotations = (
-        db.query(DBAnnotation).filter(DBAnnotation.annotator_type == "human").count()
-    )
-    llm_annotations = (
-        db.query(DBAnnotation).filter(DBAnnotation.annotator_type == "llm").count()
-    )
+        # Consensus distribution — fetch (doi, label) pairs, compute mode per paper
+        rows = (
+            db.query(DBAnnotation.paper_doi, DBAnnotation.proposed_label)
+            .filter(DBAnnotation.proposed_label.isnot(None))
+            .all()
+        )
+        from collections import defaultdict
+        by_paper: dict[str, list[str]] = defaultdict(list)
+        for doi, label in rows:
+            by_paper[doi].append(label)
 
-    return {
-        "total_papers": total_papers,
-        "total_annotations": human_annotations + llm_annotations,
-        "human_annotations": human_annotations,
-        "llm_annotations": llm_annotations,
-        "total_users": total_users,
-        "flagged_papers": flagged_count,
-        "consensus_distribution": dict(dist),
-    }
+        dist: dict[str, int] = defaultdict(int)
+        for labels in by_paper.values():
+            label_counts = Counter(labels)
+            top = label_counts.most_common(2)
+            if len(top) == 1 or (len(top) == 2 and top[0][1] > top[1][1]):
+                dist[top[0][0]] += 1
+
+        # Papers without annotations — use initial_intent
+        unannotated = (
+            db.query(PaperRecord.initial_intent, func.count())
+            .outerjoin(DBAnnotation, PaperRecord.doi == DBAnnotation.paper_doi)
+            .filter(PaperRecord.source != "dataset", DBAnnotation.id.is_(None), PaperRecord.initial_intent.isnot(None))
+            .group_by(PaperRecord.initial_intent)
+            .all()
+        )
+        for label, cnt in unannotated:
+            dist[label] += cnt
+
+        human_annotations = (
+            db.query(DBAnnotation).filter(DBAnnotation.annotator_type == "human").count()
+        )
+        llm_annotations = (
+            db.query(DBAnnotation).filter(DBAnnotation.annotator_type == "llm").count()
+        )
+
+        return {
+            "total_papers": total_papers,
+            "total_annotations": human_annotations + llm_annotations,
+            "human_annotations": human_annotations,
+            "llm_annotations": llm_annotations,
+            "total_users": total_users,
+            "flagged_papers": flagged_count,
+            "consensus_distribution": dist,
+        }
+
+    return _cached("stats:annotations", _STATS_CACHE_TTL, _compute)
 
 
 @app.get("/api/export/status")

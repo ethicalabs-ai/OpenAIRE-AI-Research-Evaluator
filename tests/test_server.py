@@ -87,3 +87,153 @@ def test_mcp_accepts_valid_token(client, monkeypatch):
         )
         assert response.status_code == 200
         assert "text/event-stream" in response.headers["content-type"]
+
+
+# ── Stats endpoint tests ──────────────────────────────────────────────────────
+
+
+def test_stats_empty_db(temp_db, monkeypatch):
+    """Stats on empty DB returns zeros."""
+    monkeypatch.setattr("server._get_redis", lambda: None)  # bypass Redis cache
+    import server as _srv
+    from database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        result = _srv.get_stats(db=db)
+        assert isinstance(result, dict)
+        assert result["total_papers"] == 0
+        assert result["total_annotations"] == 0
+        assert result["human_annotations"] == 0
+        assert result["llm_annotations"] == 0
+        assert result["flagged_papers"] == 0
+        assert result["consensus_distribution"] == {}
+    finally:
+        db.close()
+
+
+def test_stats_with_data(temp_db, monkeypatch):
+    """Stats reflect actual paper and annotation counts."""
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    import server as _srv
+    from database import SessionLocal
+    from models import PaperRecord, Annotation as DBAnnotation
+
+    db = SessionLocal()
+    try:
+        # Create papers
+        p1 = PaperRecord(
+            doi="10.1234/stats.1", title="Paper 1", abstract="abs",
+            initial_intent="Methodology", source="arxiv",
+        )
+        p2 = PaperRecord(
+            doi="10.1234/stats.2", title="Paper 2", abstract="abs",
+            initial_intent="Review", source="arxiv",
+        )
+        db.add_all([p1, p2])
+        db.flush()
+
+        # Create annotations
+        a1 = DBAnnotation(paper_doi="10.1234/stats.1", proposed_label="Methodology",
+                          annotator_type="human", user_id="test-user")
+        a2 = DBAnnotation(paper_doi="10.1234/stats.2", proposed_label="Review",
+                          annotator_type="llm", llm_model="test-model")
+        a3 = DBAnnotation(paper_doi="10.1234/stats.1", proposed_label="Dataset",
+                          annotator_type="llm", llm_model="test-model-2")
+        db.add_all([a1, a2, a3])
+        db.commit()
+
+        result = _srv.get_stats(db=db)
+
+        assert result["total_papers"] == 2
+        assert result["total_annotations"] == 3
+        assert result["human_annotations"] == 1
+        assert result["llm_annotations"] == 2
+        assert result["flagged_papers"] == 0
+    finally:
+        db.close()
+
+
+def test_stats_flagged(temp_db, monkeypatch):
+    """Papers with > 3 flag annotations count as flagged."""
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    import server as _srv
+    from database import SessionLocal
+    from models import PaperRecord, Annotation as DBAnnotation
+
+    db = SessionLocal()
+    try:
+        p = PaperRecord(doi="10.1234/stats.flagged", title="F", abstract="x",
+                        initial_intent="Methodology", source="arxiv")
+        db.add(p)
+        db.flush()
+        for i in range(4):
+            db.add(DBAnnotation(paper_doi="10.1234/stats.flagged", is_flagged=True,
+                                annotator_type="llm", llm_model=f"test-model-{i}"))
+        db.commit()
+
+        result = _srv.get_stats(db=db)
+        assert result["flagged_papers"] == 1
+    finally:
+        db.close()
+
+
+def test_stats_consensus(temp_db, monkeypatch):
+    """Consensus distribution uses majority vote per paper."""
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    import server as _srv
+    from database import SessionLocal
+    from models import PaperRecord, Annotation as DBAnnotation
+
+    db = SessionLocal()
+    try:
+        # Paper 1: two Methodology votes → Methodology
+        p1 = PaperRecord(doi="10.1234/stats.c1", title="C1", abstract="x",
+                         initial_intent="Dataset", source="arxiv")
+        # Paper 2: no annotations → initial_intent
+        p2 = PaperRecord(doi="10.1234/stats.c2", title="C2", abstract="x",
+                         initial_intent="Review", source="arxiv")
+        # Paper 3: tie (Methodology + Dataset) → excluded
+        p3 = PaperRecord(doi="10.1234/stats.c3", title="C3", abstract="x",
+                         initial_intent="Applied", source="arxiv")
+        db.add_all([p1, p2, p3])
+        db.flush()
+
+        db.add_all([
+            DBAnnotation(paper_doi="10.1234/stats.c1", proposed_label="Methodology",
+                         annotator_type="human", user_id="u1"),
+            DBAnnotation(paper_doi="10.1234/stats.c1", proposed_label="Methodology",
+                         annotator_type="llm", llm_model="m"),
+            DBAnnotation(paper_doi="10.1234/stats.c3", proposed_label="Methodology",
+                         annotator_type="human", user_id="u2"),
+            DBAnnotation(paper_doi="10.1234/stats.c3", proposed_label="Dataset",
+                         annotator_type="llm", llm_model="m"),
+        ])
+        db.commit()
+
+        result = _srv.get_stats(db=db)
+        dist = result["consensus_distribution"]
+        assert dist.get("Methodology") == 1  # paper 1
+        assert dist.get("Review") == 1       # paper 2 (initial_intent)
+        assert "Applied" not in dist         # paper 3: tie, excluded
+    finally:
+        db.close()
+
+
+def test_stats_cache_hit(temp_db, monkeypatch):
+    """_cached returns cached value without calling compute."""
+    monkeypatch.setattr("server._get_redis", lambda: None)  # no Redis
+    import server as _srv
+
+    call_count = [0]
+
+    def _compute():
+        call_count[0] += 1
+        return {"x": 1}
+
+    # No Redis → compute always called
+    r1 = _srv._cached("test-key", 60, _compute)
+    r2 = _srv._cached("test-key", 60, _compute)
+    assert r1 == {"x": 1}
+    assert r2 == {"x": 1}
+    assert call_count[0] == 2  # no cache without Redis
