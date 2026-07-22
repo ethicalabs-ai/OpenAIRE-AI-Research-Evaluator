@@ -278,4 +278,14 @@ def judge_paper(
     raw_json = response.choices[0].message.content or ""
     data = json.loads(_extract_json(raw_json))
     data = _normalize_judge_json(data, model_prediction)
-    return JudgeVerdict.model_validate(data)
+    verdict = JudgeVerdict.model_validate(data)
+
+    # Correct LLM internal inconsistency: if the judge proposes the same label
+    # as Echo but still says valid=False, override to True.
+    if (
+        not verdict.label_valid
+        and verdict.proposed_label == model_prediction
+    ):
+        verdict.label_valid = True
+
+    return verdict
