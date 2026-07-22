@@ -148,7 +148,9 @@ _JUDGE_FIELD_ALIASES: dict[str, str] = {
 }
 
 
-def _normalize_judge_json(data: dict[str, Any]) -> dict[str, Any]:
+def _normalize_judge_json(
+    data: dict[str, Any], model_prediction: str = ""
+) -> dict[str, Any]:
     """Normalize field names from loose model outputs to the Pydantic schema.
 
     Lower-priority alias mappings never overwrite an already-set field.
@@ -162,7 +164,9 @@ def _normalize_judge_json(data: dict[str, Any]) -> dict[str, Any]:
 
     # Derive label_valid from proposed_label if not explicitly set
     if "proposed_label" in normalized and "label_valid" not in normalized:
-        normalized["label_valid"] = False
+        normalized["label_valid"] = (
+            normalized["proposed_label"] == model_prediction
+        )
 
     # Derive is_flagged from flag_reason
     if (
@@ -273,5 +277,5 @@ def judge_paper(
 
     raw_json = response.choices[0].message.content or ""
     data = json.loads(_extract_json(raw_json))
-    data = _normalize_judge_json(data)
+    data = _normalize_judge_json(data, model_prediction)
     return JudgeVerdict.model_validate(data)
