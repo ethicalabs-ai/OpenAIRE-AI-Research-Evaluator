@@ -13,6 +13,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../b
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts")))
 
 
+# ── Unit: _normalize_model ────────────────────────────────────────────────────
+
+
+def test_normalize_model_merges_mtp():
+    """MTP and non-MTP variants should normalize to the same name."""
+    from export_llm_judge_dataset import _normalize_model
+
+    assert _normalize_model("Gemma-4-12B-it-MTP-GGUF") == "Gemma-4-12B-it-GGUF"
+    assert _normalize_model("Gemma-4-12B-it-GGUF") == "Gemma-4-12B-it-GGUF"
+    assert _normalize_model("Qwen3.6-35B-A3B-MTP-GGUF") == "Qwen3.6-35B-A3B-GGUF"
+    assert _normalize_model("Qwen3.6-35B-A3B-GGUF") == "Qwen3.6-35B-A3B-GGUF"
+    assert _normalize_model("SomeModel") == "SomeModel"
+    assert _normalize_model(None) == "unknown"
+
+
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -85,7 +100,6 @@ def populated_db(temp_db):
                 comment=comment,
             ))
 
-        # Model B annotations
         for doi, label, flagged, flag_reason, comment in [
             ("10.1234/paper.1", "Methodology", False, None, "[HIGH confidence] Introduces a new method."),
             ("10.1234/paper.2", "Methodology", True, "Garbled text", "[LOW confidence] Cannot parse abstract."),
@@ -136,14 +150,10 @@ def populated_db(temp_db):
 
 def test_export_per_model_files(populated_db, tmp_path, monkeypatch):
     """Should produce one JSONL file per non-excluded model."""
-    monkeypatch.setattr("config.EXCLUDED_JUDGE_MODELS", ["DeepSeek-R1-Distill-Qwen-1.5B-GGUF"])
-
-    import database as _db
-    importlib.reload(_db)
-
     from export_llm_judge_dataset import export
+    monkeypatch.setattr("export_llm_judge_dataset.EXCLUDED_JUDGE_MODELS", ["DeepSeek-R1-Distill-Qwen-1.5B-GGUF"])
 
-    export(output_dir=tmp_path)
+    export(output_dir=tmp_path, db_url=populated_db)
 
     files = sorted(tmp_path.glob("llm_judge_*.jsonl"))
     model_names = {f.stem.removeprefix("llm_judge_") for f in files}
@@ -157,14 +167,10 @@ def test_export_per_model_files(populated_db, tmp_path, monkeypatch):
 
 def test_export_record_fields(populated_db, tmp_path, monkeypatch):
     """Each exported record should have all required fields."""
-    monkeypatch.setattr("config.EXCLUDED_JUDGE_MODELS", [])
-
-    import database as _db
-    importlib.reload(_db)
-
     from export_llm_judge_dataset import export
+    monkeypatch.setattr("export_llm_judge_dataset.EXCLUDED_JUDGE_MODELS", [])
 
-    export(output_dir=tmp_path)
+    export(output_dir=tmp_path, db_url=populated_db)
 
     # Check Gemma file
     gemma_file = tmp_path / "llm_judge_Gemma-4-E4B-it-GGUF.jsonl"
@@ -204,14 +210,10 @@ def test_export_record_fields(populated_db, tmp_path, monkeypatch):
 
 def test_export_confidence_parsing(populated_db, tmp_path, monkeypatch):
     """Confidence should be correctly extracted from comment field."""
-    monkeypatch.setattr("config.EXCLUDED_JUDGE_MODELS", [])
-
-    import database as _db
-    importlib.reload(_db)
-
     from export_llm_judge_dataset import export
+    monkeypatch.setattr("export_llm_judge_dataset.EXCLUDED_JUDGE_MODELS", [])
 
-    export(output_dir=tmp_path)
+    export(output_dir=tmp_path, db_url=populated_db)
 
     gemma_file = tmp_path / "llm_judge_Gemma-4-E4B-it-GGUF.jsonl"
     records = []
@@ -233,14 +235,10 @@ def test_export_confidence_parsing(populated_db, tmp_path, monkeypatch):
 
 def test_export_human_annotations(populated_db, tmp_path, monkeypatch):
     """Should produce a human_annotations.jsonl file."""
-    monkeypatch.setattr("config.EXCLUDED_JUDGE_MODELS", [])
-
-    import database as _db
-    importlib.reload(_db)
-
     from export_llm_judge_dataset import export
+    monkeypatch.setattr("export_llm_judge_dataset.EXCLUDED_JUDGE_MODELS", [])
 
-    export(output_dir=tmp_path)
+    export(output_dir=tmp_path, db_url=populated_db)
 
     human_file = tmp_path / "human_annotations.jsonl"
     assert human_file.exists()

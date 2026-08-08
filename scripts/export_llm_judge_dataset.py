@@ -135,6 +135,17 @@ def _query_human_annotations(Session, excluded: set) -> list:
         db.close()
 
 
+def _normalize_model(name: str | None) -> str:
+    """Merge MTP and non-MTP variants of the same model.
+
+    ``Gemma-4-12B-it-MTP-GGUF`` and ``Gemma-4-12B-it-GGUF`` produce
+    identical predictions — strip ``-MTP`` and treat as one model.
+    """
+    if not name:
+        return "unknown"
+    return name.replace("-MTP", "")
+
+
 # ── Export ────────────────────────────────────────────────────────────────────
 
 
@@ -173,8 +184,14 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
 
     # Group by model
     by_model: dict[str, list[tuple[Annotation, PaperRecord]]] = defaultdict(list)
+    seen: set[tuple[str, str]] = set()  # (normalized_model, doi) for dedup
     for ann, paper in rows:
-        by_model[ann.llm_model or "unknown"].append((ann, paper))
+        model = _normalize_model(ann.llm_model)
+        key = (model, paper.doi)
+        if key in seen:
+            continue  # MTP/non-MTP duplicate — same predictions
+        seen.add(key)
+        by_model[model].append((ann, paper))
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
