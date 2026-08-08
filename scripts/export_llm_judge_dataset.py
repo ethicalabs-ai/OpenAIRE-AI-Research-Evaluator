@@ -79,7 +79,8 @@ log = logging.getLogger("export_llm_judge")
 SYSTEM_PROMPT = (
     "You are a multilingual research paper intent classifier. "
     "Given a paper title and abstract, classify its primary research intent "
-    "as exactly one of: Methodology, Dataset, Review, Applied, Theoretical."
+    "as exactly one of: Methodology, Dataset, Review, Applied, Theoretical, "
+    "Unclassifiable."
 )
 
 USER_TEMPLATE = (
@@ -245,7 +246,7 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
               f"unknown={conf_counts.get('unknown',0)}")
         print(f"     Labels:      ", end="")
         label_parts = []
-        for lbl in ["Methodology", "Dataset", "Review", "Applied", "Theoretical"]:
+        for lbl in ["Methodology", "Dataset", "Review", "Applied", "Theoretical", "Unclassifiable"]:
             cnt = label_counts.get(lbl, 0)
             if cnt:
                 label_parts.append(f"{lbl}={cnt}")
@@ -293,7 +294,7 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
         print(f"     Agreement:   {human_agreed}/{n_h} ({agree_pct:.1f}%)")
         print(f"     Labels:      ", end="")
         label_parts = []
-        for lbl in ["Methodology", "Dataset", "Review", "Applied", "Theoretical"]:
+        for lbl in ["Methodology", "Dataset", "Review", "Applied", "Theoretical", "Unclassifiable"]:
             cnt = human_label_counts.get(lbl, 0)
             if cnt:
                 label_parts.append(f"{lbl}={cnt}")

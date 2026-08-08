@@ -66,7 +66,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("export_golden")
 
-LABELS = ["Methodology", "Dataset", "Review", "Applied", "Theoretical"]
+LABELS = ["Methodology", "Dataset", "Review", "Applied", "Theoretical", "Unclassifiable"]
 MIN_VAL_PER_CLASS = 10  # floor for validation records per label
 
 
@@ -249,7 +249,8 @@ def _pick_reasoning(judgments: list[dict], consensus_label: str) -> str | None:
 SYSTEM_PROMPT = (
     "You are a multilingual research paper intent classifier. "
     "Given a paper title and abstract, classify its primary research intent "
-    "as exactly one of: Methodology, Dataset, Review, Applied, Theoretical."
+    "as exactly one of: Methodology, Dataset, Review, Applied, Theoretical, "
+    "Unclassifiable."
 )
 
 USER_TEMPLATE = (
@@ -277,7 +278,6 @@ def export(input_dir: Path, output_dir: Path, val_split: float, test_split: floa
 
     # ── Filter & compute golden labels ────────────────────────────────────
     golden: list[dict] = []
-    excluded_flag = 0
     excluded_no_consensus = 0
     label_dist: Counter = Counter()
     flag_dist: Counter = Counter()
@@ -286,10 +286,31 @@ def export(input_dir: Path, output_dir: Path, val_split: float, test_split: floa
         judgments = paper["judgments"]
         flag_count = sum(1 for j in judgments if j["is_flagged"])
 
-        # Quality filter: exclude papers flagged by > 1 model
+        # Papers flagged by > 1 model become "Unclassifiable"
         if flag_count > 1:
-            excluded_flag += 1
             flag_dist[flag_count] += 1
+            flag_reasons = [j.get("flag_reason") for j in judgments if j.get("flag_reason")]
+            reasoning = "; ".join(flag_reasons) if flag_reasons else None
+
+            model_votes = {
+                j["model"]: j["model_prediction"]
+                for j in judgments
+                if j["model_prediction"]
+            }
+
+            golden.append({
+                "doi": doi,
+                "title": paper["title"],
+                "description": paper["description"],
+                "messages": _build_messages(
+                    paper["title"], paper["description"], "Unclassifiable", reasoning,
+                ),
+                "reasoning": reasoning,
+                "label": "Unclassifiable",
+                "flag_count": flag_count,
+                "model_votes": model_votes,
+            })
+            label_dist["Unclassifiable"] += 1
             continue
 
         # Majority-vote consensus
@@ -322,7 +343,7 @@ def export(input_dir: Path, output_dir: Path, val_split: float, test_split: floa
         label_dist[consensus] += 1
 
     log.info(f"Golden candidates: {len(golden):,}")
-    log.info(f"Excluded (flags > 1): {excluded_flag}")
+    log.info(f"Unclassifiable (flags > 1): {label_dist.get('Unclassifiable', 0)}")
     log.info(f"Excluded (no consensus): {excluded_no_consensus}")
 
     # ── Stratified split ──────────────────────────────────────────────────
@@ -343,7 +364,7 @@ def export(input_dir: Path, output_dir: Path, val_split: float, test_split: floa
         "source": str(input_dir.resolve()),
         "total_papers": len(papers),
         "golden_candidates": len(golden),
-        "excluded_flags_gt_1": excluded_flag,
+        "unclassifiable_count": label_dist.get("Unclassifiable", 0),
         "excluded_no_consensus": excluded_no_consensus,
         "flag_count_distribution": dict(flag_dist),
         "label_distribution": dict(label_dist),

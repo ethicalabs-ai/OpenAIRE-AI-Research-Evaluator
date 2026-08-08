@@ -357,8 +357,8 @@ def judge_dataset_dir(tmp_path):
     return tmp_path
 
 
-def test_golden_excludes_multi_flagged(judge_dataset_dir, tmp_path):
-    """Garbled papers (g1, g2 — flagged by both models) should be excluded."""
+def test_golden_unclassifiable_label(judge_dataset_dir, tmp_path):
+    """Garbled papers (g1, g2 — flagged by both models) should get Unclassifiable label."""
     from export_golden_dataset import export
 
     out_dir = tmp_path / "golden"
@@ -372,13 +372,19 @@ def test_golden_excludes_multi_flagged(judge_dataset_dir, tmp_path):
                 for line in f:
                     all_records.append(json.loads(line))
 
+    # Garbled papers should be present with Unclassifiable label
+    g1 = next(r for r in all_records if r["doi"] == "10.1234/g1")
+    assert g1["label"] == "Unclassifiable"
+    assert g1["flag_count"] == 2
+    assert "Garbled text" in (g1.get("reasoning") or "")
+
+    g2 = next(r for r in all_records if r["doi"] == "10.1234/g2")
+    assert g2["label"] == "Unclassifiable"
+    assert g2["flag_count"] == 2
+
+    # 10 papers total (no exclusions)
     dois = {r["doi"] for r in all_records}
-    assert "10.1234/g1" not in dois, "Garbled paper should be excluded"
-    assert "10.1234/g2" not in dois, "Garbled paper should be excluded"
-    # 8 clean papers should remain
-    assert len(dois) == 8
-    assert "10.1234/d1" in dois
-    assert "10.1234/d2" in dois
+    assert len(dois) == 10
 
 
 def test_golden_consensus_label(judge_dataset_dir, tmp_path):
@@ -470,8 +476,8 @@ def test_golden_stats_file(judge_dataset_dir, tmp_path):
     with open(out_dir / "golden_stats.json", encoding="utf-8") as f:
         stats = json.load(f)
 
-    assert stats["golden_candidates"] == 8  # 10 papers - 2 garbled
-    assert stats["excluded_flags_gt_1"] == 2
+    assert stats["golden_candidates"] == 10  # 10 papers, none excluded
+    assert stats["unclassifiable_count"] == 2  # g1 + g2
     assert "label_distribution" in stats
     assert "splits" in stats
     assert "train" in stats["splits"]
@@ -480,7 +486,7 @@ def test_golden_stats_file(judge_dataset_dir, tmp_path):
 
 
 def test_golden_dataset_class_in_splits(judge_dataset_dir, tmp_path):
-    """Dataset-labeled records should appear in val and test splits."""
+    """Unclassifiable and Dataset labels should appear in at least val or test."""
     from export_golden_dataset import export
 
     out_dir = tmp_path / "golden"
@@ -493,6 +499,7 @@ def test_golden_dataset_class_in_splits(judge_dataset_dir, tmp_path):
             records = [json.loads(line) for line in f]
         all_labels[split_name] = {r["label"] for r in records}
 
-    # Dataset must appear in at least val or test (safeguarding ensures this)
-    assert "Dataset" in all_labels["golden_val.jsonl"] or "Dataset" in all_labels["golden_test.jsonl"], \
-        "Dataset class missing from both val and test"
+    # Unclassifiable must appear in at least one split
+    all_combined = set.union(*all_labels.values())
+    assert "Unclassifiable" in all_combined, "Unclassifiable missing from all splits"
+    assert "Dataset" in all_combined, "Dataset missing from all splits"
