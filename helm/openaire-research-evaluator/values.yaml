@@ -30,6 +30,7 @@ config:
   llmBaseUrl: "http://host.docker.internal:13305/v1"
   llmApiKey: "not-needed"
   hfDatasetsUrl: "https://huggingface.co/collections/ethicalabs/openaire-ai-hackathon-2026"
+  hubReadOnly: false
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 # Set externalUrl to use a managed PostgreSQL (skips built-in deployment).

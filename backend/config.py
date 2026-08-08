@@ -34,6 +34,14 @@ HF_DATASETS_URL: str = os.getenv(
 )
 
 # =============================================================================
+# Collaborative hub — read-only kill switch
+# =============================================================================
+# Set to "true" / "1" / "yes" to disable all mutation endpoints:
+# login, voting, paper import, saved papers, and remote LLM judge submissions.
+# The web interface becomes browse-only. Default: writable (empty/unset).
+HUB_READ_ONLY: bool = os.getenv("HUB_READ_ONLY", "").lower() in ("1", "true", "yes")
+
+# =============================================================================
 # API Key — shared secret for agent-facing endpoints (MCP SSE + judge annotations)
 # =============================================================================
 # Single API key for machine-to-machine endpoints.

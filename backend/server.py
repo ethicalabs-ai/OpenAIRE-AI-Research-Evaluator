@@ -23,7 +23,7 @@ from auth_utils import (
     require_current_user,
 )
 from celery_app import celery_app
-from config import API_KEY
+from config import API_KEY, HUB_READ_ONLY
 from database import get_db
 from fastapi import Depends, Request, Response, Header
 from intent_classifier import classify_paper, get_classifier, is_loaded
@@ -34,6 +34,17 @@ from models import Annotation as DBAnnotation
 from models import PaperRecord
 from models import SavedPaper as DBSavedPaper
 from models import User as DBUser
+
+
+def _require_hub_writable():
+    """FastAPI dependency — raises 503 when the hub is read-only."""
+    if HUB_READ_ONLY:
+        raise HTTPException(
+            status_code=503,
+            detail="The collaborative hub is in read-only mode. "
+            "The curated datasets and fine-tuned model are available on HuggingFace.",
+        )
+
 
 app = FastAPI(title="OpenAIRE 2026 — Research Paper Classifier API", version="0.1.0")
 
@@ -1237,7 +1248,7 @@ def get_paper_details(doi: str, db: Session = Depends(get_db)):
 
 
 @app.post("/api/annotations/papers")
-def import_paper(req: PaperImportRequest, db: Session = Depends(get_db)):
+def import_paper(req: PaperImportRequest, _ = Depends(_require_hub_writable), db: Session = Depends(get_db)):
     clean_doi = sanitize_doi(req.doi)
     if not clean_doi:
         raise HTTPException(
@@ -1260,7 +1271,7 @@ def import_paper(req: PaperImportRequest, db: Session = Depends(get_db)):
 
 
 @app.post("/api/annotations/vote")
-def cast_vote(req: VoteRequest, request: Request, db: Session = Depends(get_db)):
+def cast_vote(req: VoteRequest, _ = Depends(_require_hub_writable), request: Request = ..., db: Session = Depends(get_db)):
     user_info = require_current_user(request)
     clean_doi = sanitize_doi(req.doi)
 
@@ -1306,6 +1317,7 @@ class JudgeAnnotationRequest(BaseModel):
 @app.post("/api/annotations/judge")
 def judge_annotation(
     req: JudgeAnnotationRequest,
+    _ = Depends(_require_hub_writable),
     authorization: str = Header(default=""),
     db: Session = Depends(get_db),
 ):
