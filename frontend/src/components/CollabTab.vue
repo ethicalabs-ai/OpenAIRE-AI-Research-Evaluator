@@ -50,6 +50,7 @@
         :livePrediction="livePrediction"
         :voteForm="voteForm"
         :availableLabels="availableLabels"
+        :hubReadOnly="stats.hub_read_only || false"
         @submitVote="submitVote"
         @importAndAnnotate="importAndAnnotate"
         @update:voteForm="voteForm = $event"

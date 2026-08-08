@@ -30,6 +30,10 @@
         <span class="stat-label">Papers Flagged</span>
       </div>
     </div>
+    <div v-if="stats.hub_read_only" class="readonly-banner">
+      📦 The collaborative hub is now archived. Annotation contributions are
+      closed. All curated datasets and models are available on HuggingFace.
+    </div>
     <div class="export-box border-left">
       <h4>📦 Curated Datasets</h4>
       <p>

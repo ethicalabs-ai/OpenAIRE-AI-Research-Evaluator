@@ -1476,6 +1476,7 @@ def get_stats(db: Session = Depends(get_db)):
             "total_users": total_users,
             "flagged_papers": flagged_count,
             "consensus_distribution": dist,
+            "hub_read_only": HUB_READ_ONLY,
         }
 
     return _cached("stats:annotations", _STATS_CACHE_TTL, _compute)

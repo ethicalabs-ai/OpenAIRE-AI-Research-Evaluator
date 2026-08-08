@@ -168,6 +168,15 @@
             contribute your annotation.
           </p>
         </div>
+        <div v-else-if="hubReadOnly" class="vote-blocker">
+          <p>
+            📦 The collaborative hub is now archived. Download the curated
+            datasets and the fine-tuned model on
+            <a :href="hfDatasetsUrl" target="_blank" rel="noopener"
+              >HuggingFace</a
+            >.
+          </p>
+        </div>
         <form
           v-else
           @submit.prevent="
@@ -277,8 +286,14 @@ export default {
         "Theoretical",
       ],
     },
+    hubReadOnly: { type: Boolean, default: false },
   },
   emits: ["submitVote", "importAndAnnotate", "update:voteForm"],
+  computed: {
+    hfDatasetsUrl() {
+      return import.meta.env.VITE_HF_DATASETS_URL || "";
+    },
+  },
   methods: {
     formatDate(dateStr) {
       if (!dateStr) return "";
