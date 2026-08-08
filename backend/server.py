@@ -23,7 +23,7 @@ from auth_utils import (
     require_current_user,
 )
 from celery_app import celery_app
-from config import API_KEY, EXPORT_ENABLED
+from config import API_KEY
 from database import get_db
 from fastapi import Depends, Request, Response, Header
 from intent_classifier import classify_paper, get_classifier, is_loaded
@@ -1467,56 +1467,6 @@ def get_stats(db: Session = Depends(get_db)):
         }
 
     return _cached("stats:annotations", _STATS_CACHE_TTL, _compute)
-
-
-@app.get("/api/export/status")
-def export_status():
-    return {
-        "enabled": EXPORT_ENABLED,
-        "message": (
-            None
-            if EXPORT_ENABLED
-            else "The community-curated dataset will be available once we have reached enough human annotations. Check back soon."
-        ),
-    }
-
-
-@app.get("/api/annotations/export")
-def export_dataset(db: Session = Depends(get_db)):
-    if not EXPORT_ENABLED:
-        raise HTTPException(
-            status_code=503,
-            detail="The community-curated dataset will be available once we have reached enough human annotations.",
-        )
-    # Exclude internal evaluation records from exports
-    papers = db.query(PaperRecord).filter(PaperRecord.source != "dataset").all()
-    lines = []
-    for p in papers:
-        flags = [a for a in p.annotations if a.is_flagged == True]
-        if len(flags) > 3:
-            continue  # Skip quarantined papers
-
-        consensus = get_consensus_label(p.annotations)
-        final_intent = consensus if consensus else p.initial_intent
-
-        # Build chat format sample matching prepared datasets
-        lines.append(
-            {
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a research paper intent classifier. Answer with a single word label.",
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Title: {p.title}\nAbstract: {p.abstract}",
-                    },
-                    {"role": "assistant", "content": final_intent},
-                ],
-                "metadata": {"doi": p.doi, "votes": len(p.annotations)},
-            }
-        )
-    return lines
 
 
 # Serve Static files if directory exists

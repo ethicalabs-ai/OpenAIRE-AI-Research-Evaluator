@@ -56,7 +56,7 @@
       />
     </div>
 
-    <CollabStats :stats="stats" @export="exportDataset" />
+    <CollabStats :stats="stats" />
   </div>
 </template>
 
@@ -492,30 +492,6 @@ export default {
       }
     };
 
-    // ── Export ────────────────────────────────────────────────────────────────
-    const exportDataset = async () => {
-      try {
-        const res = await fetch("/api/annotations/export");
-        const data = await res.json();
-        const jsonlContent = data
-          .map((line) => JSON.stringify(line))
-          .join("\n");
-        const blob = new Blob([jsonlContent], {
-          type: "application/x-jsonlines",
-        });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "echo_dsrn_collaborative_gold.jsonl";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error("Export failed:", err);
-      }
-    };
-
     // ── Save to history ───────────────────────────────────────────────────────
     const saveToHistory = (paper) => {
       emit("save", {
@@ -586,7 +562,6 @@ export default {
       onProfileUpdate,
       selectPaper,
       submitVote,
-      exportDataset,
       searchSource,
       isSearching,
       externalResults,

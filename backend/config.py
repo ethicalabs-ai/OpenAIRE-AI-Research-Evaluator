@@ -14,11 +14,24 @@ LLM_JUDGE_DEFAULT_MODEL: str = os.getenv(
 )
 
 # =============================================================================
+# Export — dataset export filters
+# =============================================================================
+
+# LLM models to exclude from dataset exports (underperforming or deprecated).
+# Model names must match the `llm_model` column in the annotations table.
+EXCLUDED_JUDGE_MODELS: list[str] = [
+    # "DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+]
+
+# =============================================================================
 # Export — gold-standard dataset
 # =============================================================================
-# Set to "true" / "1" / "yes" to enable the download endpoint and UI button.
-# Leave blank (default) to disable until enough human annotations accumulate.
-EXPORT_ENABLED: bool = os.getenv("EXPORT_ENABLED", "").lower() in ("1", "true", "yes")
+# Public URL for the curated datasets on HuggingFace.
+# Override via HF_DATASETS_URL env var.
+HF_DATASETS_URL: str = os.getenv(
+    "HF_DATASETS_URL",
+    "https://huggingface.co/collections/ethicalabs/openaire-ai-hackathon-2026",
+)
 
 # =============================================================================
 # API Key — shared secret for agent-facing endpoints (MCP SSE + judge annotations)

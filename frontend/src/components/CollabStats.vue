@@ -31,45 +31,31 @@
       </div>
     </div>
     <div class="export-box border-left">
-      <h4>💾 Gold-Standard dataset</h4>
-      <p v-if="exportEnabled">
-        Export the community-curated intent classification dataset in JSONL chat
-        format.
+      <h4>📦 Curated Datasets</h4>
+      <p>
+        Download the LLM-as-Judge and gold-standard datasets, along with
+        the current Echo-DSRN intent classifier
+        (ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF).
+        A v0.1.4 model fine-tuned on the golden dataset is coming soon.
       </p>
-      <p v-else class="export-disabled-msg">{{ exportMessage }}</p>
-      <button
-        @click="$emit('export')"
+      <a
+        :href="hfDatasetsUrl"
+        target="_blank"
+        rel="noopener"
         class="btn btn-accent btn-sm btn-block"
-        :disabled="!exportEnabled"
       >
-        Download JSONL
-      </button>
+        View on HuggingFace →
+      </a>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from "vue";
-
 export default {
   props: { stats: { type: Object, default: () => ({}) } },
-  emits: ["export"],
   setup() {
-    const exportEnabled = ref(false);
-    const exportMessage = ref("");
-
-    onMounted(async () => {
-      try {
-        const res = await fetch("/api/export/status");
-        const data = await res.json();
-        exportEnabled.value = data.enabled;
-        exportMessage.value = data.message || "";
-      } catch (e) {
-        /* ignore */
-      }
-    });
-
-    return { exportEnabled, exportMessage };
+    const hfDatasetsUrl = import.meta.env.VITE_HF_DATASETS_URL || "";
+    return { hfDatasetsUrl };
   },
 };
 </script>
