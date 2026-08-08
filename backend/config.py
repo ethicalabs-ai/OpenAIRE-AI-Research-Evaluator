@@ -20,6 +20,9 @@ LLM_JUDGE_DEFAULT_MODEL: str = os.getenv(
 # LLM models to exclude from dataset exports (underperforming or deprecated).
 # Model names must match the `llm_model` column in the annotations table.
 EXCLUDED_JUDGE_MODELS: list[str] = [
+    "user.Kurtis-E1.1-Qwen3-4B-GGUF-IQ4_XS",
+    "Ministral-3-3B-Instruct-2512-GGUF",
+    "Jan-v1-4B-GGUF",
     # "DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
 ]
 
