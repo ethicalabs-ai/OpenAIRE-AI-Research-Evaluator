@@ -297,7 +297,6 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
                     "is_flagged": ann.is_flagged,
                     "flag_reason": ann.flag_reason or "",
                     "confidence": "human",
-                    "annotator": ann.user_id,
                 }
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
 

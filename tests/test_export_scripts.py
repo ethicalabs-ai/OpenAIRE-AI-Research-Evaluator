@@ -253,7 +253,6 @@ def test_export_human_annotations(populated_db, tmp_path, monkeypatch):
     assert rec["doi"] == "10.1234/paper.1"
     assert rec["model_prediction"] == "Methodology"
     assert rec["confidence"] == "human"
-    assert rec["annotator"] == "hf|testuser"
     assert "novel architecture" in rec["reasoning"]
 
 
