@@ -197,9 +197,10 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
 
     # ── Per-model summary header ──────────────────────────────────────────
     all_models = sorted(by_model.keys())
-    total_all = len(rows)
+    total_all = sum(len(v) for v in by_model.values())  # post-dedup count
+    total_raw = len(rows)
     log.info(f"Models found: {len(all_models)}")
-    log.info(f"Total annotations: {total_all}")
+    log.info(f"Total annotations (after MTP dedup): {total_all} / {total_raw} raw")
     log.info(f"Output directory: {output_dir.resolve()}\n")
 
     print(f"\n{'='*70}")
@@ -228,17 +229,17 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
                     "doi": paper.doi,
                     "title": paper.title,
                     "description": paper.abstract,
-                    "initial_intent": paper.initial_intent,
+                    "initial_intent": paper.initial_intent or "",
                     "messages": _build_messages(
                         paper.title,
                         paper.abstract,
                         ann.proposed_label or "",
                         rationale,
                     ),
-                    "reasoning": rationale or None,
+                    "reasoning": rationale or "",
                     "model_prediction": ann.proposed_label,
                     "is_flagged": ann.is_flagged,
-                    "flag_reason": ann.flag_reason or None,
+                    "flag_reason": ann.flag_reason or "",
                     "confidence": conf,
                 }
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -284,17 +285,17 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
                     "doi": paper.doi,
                     "title": paper.title,
                     "description": paper.abstract,
-                    "initial_intent": paper.initial_intent,
+                    "initial_intent": paper.initial_intent or "",
                     "messages": _build_messages(
                         paper.title,
                         paper.abstract,
                         ann.proposed_label or "",
                         ann.comment or "",
                     ),
-                    "reasoning": ann.comment or None,
+                    "reasoning": ann.comment or "",
                     "model_prediction": ann.proposed_label,
                     "is_flagged": ann.is_flagged,
-                    "flag_reason": ann.flag_reason or None,
+                    "flag_reason": ann.flag_reason or "",
                     "confidence": "human",
                     "annotator": ann.user_id,
                 }
