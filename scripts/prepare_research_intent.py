@@ -767,12 +767,14 @@ def load_arxiv(
 
         seen.add(fp)
         counts[label] += 1
+        arxiv_id = ex.get("id", "")
         records.append(
             {
                 "title": title,
                 "abstract": abstract,
                 "label": label,
                 "source": "arxiv",
+                "doi": f"10.48550/arXiv.{arxiv_id}" if arxiv_id else None,
             }
         )
         pbar.set_postfix({label[:3]: counts[label] for label in LABELS}, refresh=False)
@@ -842,12 +844,14 @@ def load_arxiv_summarization(
 
         seen.add(fp)
         counts[label] += 1
+        arxiv_id = ex.get("id", "")
         records.append(
             {
                 "title": title,
                 "abstract": abstract,
                 "label": label,
                 "source": "arxiv_summarization",
+                "doi": f"10.48550/arXiv.{arxiv_id}" if arxiv_id and arxiv_id != "?" else None,
             }
         )
 
@@ -964,14 +968,24 @@ def load_pubmed(max_per_label: int, seen: set[str]) -> list[dict]:
                             break
                         title_el = article.find(".//ArticleTitle")
                         abs_el = article.find(".//AbstractText")
+                        # Use itertext() to capture text in nested elements
+                        # (.text truncates at <sup>, <sub>, <i>, etc.)
                         title = (
-                            (title_el.text or "").strip()
+                            "".join(title_el.itertext()).strip()
                             if title_el is not None
                             else ""
                         )
                         abstract = (
-                            (abs_el.text or "").strip() if abs_el is not None else ""
+                            "".join(abs_el.itertext()).strip()
+                            if abs_el is not None
+                            else ""
                         )
+                        # Extract DOI from ArticleId elements
+                        pubmed_doi = None
+                        for aid_el in article.findall(".//ArticleId"):
+                            if aid_el.get("IdType") == "doi":
+                                pubmed_doi = aid_el.text
+                                break
                         if not _is_clean_title(title) or not _is_clean_abstract(
                             abstract
                         ):
@@ -991,6 +1005,7 @@ def load_pubmed(max_per_label: int, seen: set[str]) -> list[dict]:
                                 "abstract": abstract,
                                 "label": label,
                                 "source": "pubmed",
+                                "doi": pubmed_doi,
                             }
                         )
                     time.sleep(0.4)  # NCBI rate limit: 3 req/s without API key
@@ -1146,12 +1161,14 @@ def load_semantic_scholar_datasets(max_per_label: int, seen: set[str]) -> list[d
                     seen.add(fp)
                     fetched += 1
                     pbar.update(1)
+                    s2_doi = (paper.get("externalIds") or {}).get("DOI")
                     records.append(
                         {
                             "title": title,
                             "abstract": abstract,
                             "label": "Dataset",
                             "source": "semantic_scholar",
+                            "doi": s2_doi,
                         }
                     )
 
@@ -1253,12 +1270,14 @@ def load_semantic_scholar_methodology(max_per_label: int, seen: set[str]) -> lis
                     seen.add(fp)
                     fetched += 1
                     pbar.update(1)
+                    s2_doi = (paper.get("externalIds") or {}).get("DOI")
                     records.append(
                         {
                             "title": title,
                             "abstract": abstract,
                             "label": "Methodology",
                             "source": "semantic_scholar",
+                            "doi": s2_doi,
                         }
                     )
 
@@ -1358,12 +1377,14 @@ def load_semantic_scholar_theoretical(max_per_label: int, seen: set[str]) -> lis
                     seen.add(fp)
                     fetched += 1
                     pbar.update(1)
+                    s2_doi = (paper.get("externalIds") or {}).get("DOI")
                     records.append(
                         {
                             "title": title,
                             "abstract": abstract,
                             "label": "Theoretical",
                             "source": "semantic_scholar",
+                            "doi": s2_doi,
                         }
                     )
 
@@ -1469,12 +1490,14 @@ def load_dataset_papers(max_per_label: int, seen: set[str]) -> list[dict]:
                         seen_pwc.add(pid)
                         seen.add(fp)
                         fetched += 1
+                        pwc_doi = paper.get("doi")
                         records.append(
                             {
                                 "title": title,
                                 "abstract": abstract,
                                 "label": "Dataset",
                                 "source": "paperswithcode",
+                                "doi": pwc_doi,
                             }
                         )
                     time.sleep(0.3)
@@ -1582,12 +1605,23 @@ def load_openaire(max_per_label: int, seen: set[str]) -> list[dict]:
 
                         seen.add(fp)
                         counts[label] += 1
+                        # Extract DOI from pid field
+                        oa_doi = None
+                        pids = meta.get("pid", [])
+                        if isinstance(pids, dict):
+                            pids = [pids]
+                        for pid in pids:
+                            if pid.get("@classid", "").lower() == "doi":
+                                oa_doi = pid.get("$", "")
+                                break
+
                         records.append(
                             {
                                 "title": title,
                                 "abstract": abstract,
                                 "label": label,
                                 "source": "openaire",
+                                "doi": oa_doi,
                             }
                         )
                     except (KeyError, IndexError, TypeError):
@@ -1645,7 +1679,7 @@ def load_llm_judge_corrections(max_per_label: int, seen: set[str]) -> list[dict]
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT p.title, p.abstract, a.proposed_label
+            SELECT p.title, p.abstract, a.proposed_label, p.doi
             FROM annotations a
             JOIN paper_records p ON a.paper_doi = p.doi
             WHERE a.annotator_type = 'llm'
@@ -1657,7 +1691,7 @@ def load_llm_judge_corrections(max_per_label: int, seen: set[str]) -> list[dict]
         rows = cursor.fetchall()
         conn.close()
 
-        for title, abstract, proposed_label in rows:
+        for title, abstract, proposed_label, paper_doi in rows:
             if proposed_label not in LABELS:
                 continue
             if counts[proposed_label] >= max_per_label:
@@ -1677,6 +1711,7 @@ def load_llm_judge_corrections(max_per_label: int, seen: set[str]) -> list[dict]
                     "abstract": abstract,
                     "label": proposed_label,
                     "source": "llm_judge_corrections",
+                    "doi": paper_doi,
                 }
             )
     except Exception as e:
@@ -1928,6 +1963,8 @@ def main():
                 "source": r["source"],
                 "lang": r.get("lang", "en"),
             }
+            if r.get("doi"):
+                row["doi"] = r["doi"]
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     # ── Write val.jsonl ───────────────────────────────────────────────────
@@ -1941,6 +1978,8 @@ def main():
                 "source": r["source"],
                 "lang": r.get("lang", "en"),
             }
+            if r.get("doi"):
+                row["doi"] = r["doi"]
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     # ── Write stats.json ──────────────────────────────────────────────────
