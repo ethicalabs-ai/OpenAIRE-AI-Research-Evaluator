@@ -374,7 +374,6 @@ def test_golden_unclassifiable_label(judge_dataset_dir, tmp_path):
     g1 = next(r for r in all_records if r["doi"] == "10.1234/g1")
     assert g1["label"] == "Unclassifiable"
     assert g1["flag_count"] == 2
-    assert "Garbled text" in (g1.get("reasoning") or "")
 
     g2 = next(r for r in all_records if r["doi"] == "10.1234/g2")
     assert g2["label"] == "Unclassifiable"
@@ -432,12 +431,12 @@ def test_golden_record_fields(judge_dataset_dir, tmp_path):
     assert "doi" in rec
     assert "title" in rec
     assert "description" in rec
-    assert "reasoning" in rec
     assert "label" in rec
     assert "flag_count" in rec
     assert "model_votes" in rec
-    # messages is intentionally absent — consensus labels only
+    # messages and reasoning are intentionally absent — consensus labels only
     assert "messages" not in rec
+    assert "reasoning" not in rec
 
     # model_votes should contain both models
     assert "Gemma-4-E4B-it-GGUF" in rec["model_votes"]

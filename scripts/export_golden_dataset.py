@@ -28,7 +28,6 @@ Golden record format
       "doi": "10.48550/arXiv.2106.01345",
       "title": "A Corpus-free State2Seq User Simulator ...",
       "description": "Recent reinforcement learning algorithms ...",
-      "reasoning": "The paper introduces a new dataset ...",
       "label": "Dataset",
       "flag_count": 0,
       "model_votes": {
@@ -227,18 +226,6 @@ def _stratified_split(
     return train, val, test
 
 
-def _pick_reasoning(judgments: list[dict], consensus_label: str) -> str | None:
-    """Return the reasoning from a model whose prediction matches the consensus."""
-    for j in judgments:
-        if j["model_prediction"] == consensus_label and j.get("reasoning"):
-            return j["reasoning"]
-    # Fallback: any reasoning
-    for j in judgments:
-        if j.get("reasoning"):
-            return j["reasoning"]
-    return None
-
-
 # ── Export ────────────────────────────────────────────────────────────────────
 
 
@@ -258,8 +245,6 @@ def export(input_dir: Path, output_dir: Path, val_split: float, test_split: floa
         # Papers flagged by > 1 model become "Unclassifiable"
         if flag_count > 1:
             flag_dist[flag_count] += 1
-            flag_reasons = [j.get("flag_reason") for j in judgments if j.get("flag_reason")]
-            reasoning = "; ".join(flag_reasons) if flag_reasons else None
 
             model_votes = {
                 j["model"]: j["model_prediction"]
@@ -271,7 +256,6 @@ def export(input_dir: Path, output_dir: Path, val_split: float, test_split: floa
                 "doi": doi,
                 "title": paper["title"],
                 "description": paper["description"],
-                "reasoning": reasoning,
                 "label": "Unclassifiable",
                 "flag_count": flag_count,
                 "model_votes": model_votes,
@@ -286,8 +270,6 @@ def export(input_dir: Path, output_dir: Path, val_split: float, test_split: floa
             excluded_no_consensus += 1
             continue
 
-        reasoning = _pick_reasoning(judgments, consensus)
-
         model_votes = {
             j["model"]: j["model_prediction"]
             for j in judgments
@@ -298,7 +280,6 @@ def export(input_dir: Path, output_dir: Path, val_split: float, test_split: floa
             "doi": doi,
             "title": paper["title"],
             "description": paper["description"],
-            "reasoning": reasoning,
             "label": consensus,
             "flag_count": flag_count,
             "model_votes": model_votes,
