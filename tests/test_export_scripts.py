@@ -432,23 +432,16 @@ def test_golden_record_fields(judge_dataset_dir, tmp_path):
     assert "doi" in rec
     assert "title" in rec
     assert "description" in rec
-    assert "messages" in rec
     assert "reasoning" in rec
     assert "label" in rec
     assert "flag_count" in rec
     assert "model_votes" in rec
+    # messages is intentionally absent — consensus labels only
+    assert "messages" not in rec
 
     # model_votes should contain both models
     assert "Gemma-4-E4B-it-GGUF" in rec["model_votes"]
     assert "Qwen3.5-35B-A3B-GGUF" in rec["model_votes"]
-
-    # Messages should have inline reasoning
-    msgs = rec["messages"]
-    assert len(msgs) == 3
-    assert msgs[2]["role"] == "assistant"
-    if rec.get("reasoning"):
-        assert rec["reasoning"] in msgs[2]["content"]
-        assert rec["label"] in msgs[2]["content"]
 
 
 def test_golden_splits_exist(judge_dataset_dir, tmp_path):

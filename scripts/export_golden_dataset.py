@@ -28,11 +28,6 @@ Golden record format
       "doi": "10.48550/arXiv.2106.01345",
       "title": "A Corpus-free State2Seq User Simulator ...",
       "description": "Recent reinforcement learning algorithms ...",
-      "messages": [
-        {"role": "system", "content": "You are a multilingual ..."},
-        {"role": "user", "content": "Classify the research intent ..."},
-        {"role": "assistant", "content": "The paper introduces a new dataset ...\\n\\nDataset"}
-      ],
       "reasoning": "The paper introduces a new dataset ...",
       "label": "Dataset",
       "flag_count": 0,
@@ -244,32 +239,6 @@ def _pick_reasoning(judgments: list[dict], consensus_label: str) -> str | None:
     return None
 
 
-# ── Messages (matching prepare_research_intent.py) ────────────────────────────
-
-SYSTEM_PROMPT = (
-    "You are a multilingual research paper intent classifier. "
-    "Given a paper title and abstract, classify its primary research intent "
-    "as exactly one of: Methodology, Dataset, Review, Applied, Theoretical, "
-    "Unclassifiable."
-)
-
-USER_TEMPLATE = (
-    "Classify the research intent of this paper:\n\n"
-    "Title: {title}\n"
-    "Abstract: {abstract}"
-)
-
-
-def _build_messages(title: str, abstract: str, label: str, reasoning: str | None) -> list[dict]:
-    """Build ChatML messages with inline reasoning in the assistant content."""
-    assistant_content = f"{reasoning}\n\n{label}" if reasoning else label
-    return [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": USER_TEMPLATE.format(title=title, abstract=abstract)},
-        {"role": "assistant", "content": assistant_content},
-    ]
-
-
 # ── Export ────────────────────────────────────────────────────────────────────
 
 
@@ -302,9 +271,6 @@ def export(input_dir: Path, output_dir: Path, val_split: float, test_split: floa
                 "doi": doi,
                 "title": paper["title"],
                 "description": paper["description"],
-                "messages": _build_messages(
-                    paper["title"], paper["description"], "Unclassifiable", reasoning,
-                ),
                 "reasoning": reasoning,
                 "label": "Unclassifiable",
                 "flag_count": flag_count,
@@ -332,9 +298,6 @@ def export(input_dir: Path, output_dir: Path, val_split: float, test_split: floa
             "doi": doi,
             "title": paper["title"],
             "description": paper["description"],
-            "messages": _build_messages(
-                paper["title"], paper["description"], consensus, reasoning,
-            ),
             "reasoning": reasoning,
             "label": consensus,
             "flag_count": flag_count,
