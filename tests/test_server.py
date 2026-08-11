@@ -343,3 +343,36 @@ def test_judge_upserts_existing(temp_db, monkeypatch):
         assert annotations[0].comment == "updated"
     finally:
         db.close()
+
+
+def test_hub_read_only_blocks_writes(temp_db, monkeypatch):
+    """When HUB_READ_ONLY is set, vote/judge/import return 503."""
+    monkeypatch.setattr("server.HUB_READ_ONLY", True)
+    monkeypatch.setattr("server.API_KEY", "test-key")
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    from fastapi.testclient import TestClient
+    import server as _srv
+
+    client = TestClient(_srv.app)
+
+    # Paper import blocked
+    r = client.post("/api/annotations/papers", json={
+        "doi": "10.1234/ro-test", "title": "T", "abstract": "A", "initial_intent": "Applied",
+    })
+    assert r.status_code == 503
+
+    # Vote blocked
+    r = client.post("/api/annotations/vote", json={
+        "doi": "10.1234/ro-test", "proposed_label": "Applied",
+    })
+    assert r.status_code == 503
+
+    # Judge blocked
+    r = client.post("/api/annotations/judge", json={
+        "doi": "10.1234/ro-test", "title": "T", "abstract": "A", "llm_model": "m",
+    }, headers={"Authorization": "Bearer test-key"})
+    assert r.status_code == 503
+
+    # Login (GET) should still work — not a mutation
+    r = client.get("/api/auth/login")
+    assert r.status_code == 200  # redirect to HF OAuth

@@ -14,11 +14,39 @@ LLM_JUDGE_DEFAULT_MODEL: str = os.getenv(
 )
 
 # =============================================================================
+# Export — dataset export filters
+# =============================================================================
+
+# LLM models to exclude from dataset exports (underperforming or deprecated).
+# Model names must match the `llm_model` column in the annotations table.
+EXCLUDED_JUDGE_MODELS: list[str] = [
+    "user.Kurtis-E1.1-Qwen3-4B-GGUF-IQ4_XS",
+    "Ministral-3-3B-Instruct-2512-GGUF",
+    "Jan-v1-4B-GGUF",
+    "DeepSeek-Qwen3-8B-GGUF",
+    # Test artifacts that leaked into the production DB
+    "test-model",
+    "model-a",
+    "model-b",
+]
+
+# =============================================================================
 # Export — gold-standard dataset
 # =============================================================================
-# Set to "true" / "1" / "yes" to enable the download endpoint and UI button.
-# Leave blank (default) to disable until enough human annotations accumulate.
-EXPORT_ENABLED: bool = os.getenv("EXPORT_ENABLED", "").lower() in ("1", "true", "yes")
+# Public URL for the curated datasets on HuggingFace.
+# Override via HF_DATASETS_URL env var.
+HF_DATASETS_URL: str = os.getenv(
+    "HF_DATASETS_URL",
+    "https://huggingface.co/collections/ethicalabs/openaire-ai-hackathon-2026",
+)
+
+# =============================================================================
+# Collaborative hub — read-only kill switch
+# =============================================================================
+# Set to "true" / "1" / "yes" to disable all mutation endpoints:
+# login, voting, paper import, saved papers, and remote LLM judge submissions.
+# The web interface becomes browse-only. Default: writable (empty/unset).
+HUB_READ_ONLY: bool = os.getenv("HUB_READ_ONLY", "").lower() in ("1", "true", "yes")
 
 # =============================================================================
 # API Key — shared secret for agent-facing endpoints (MCP SSE + judge annotations)

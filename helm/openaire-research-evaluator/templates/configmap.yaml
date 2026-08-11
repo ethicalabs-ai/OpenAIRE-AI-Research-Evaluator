@@ -8,5 +8,6 @@ data:
   APP_PORT: {{ .Values.config.appPort | quote }}
   LLM_BASE_URL: {{ .Values.config.llmBaseUrl | quote }}
   LLM_API_KEY: {{ .Values.config.llmApiKey | quote }}
-  EXPORT_ENABLED: {{ ternary "true" "false" .Values.config.exportEnabled | quote }}
+  HF_DATASETS_URL: {{ .Values.config.hfDatasetsUrl | quote }}
+  HUB_READ_ONLY: {{ ternary "true" "false" .Values.config.hubReadOnly | quote }}
   REDIS_URL: {{ if .Values.redis.externalUrl }}{{ .Values.redis.externalUrl | quote }}{{ else }}"redis://{{ include "chart.fullname" . }}-redis:6379/0"{{ end }}

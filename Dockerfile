@@ -43,6 +43,9 @@ print('Model cached at', __import__('os').environ['HF_HOME'])"
 ENV INTENT_CLF_PATH=ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF
 
 # Copy the entire application code
+# HuggingFace datasets collection URL (injected at build time for the UI)
+ARG VITE_HF_DATASETS_URL="https://huggingface.co/collections/ethicalabs/openaire-ai-hackathon-2026"
+
 COPY . .
 
 # Build the frontend locally

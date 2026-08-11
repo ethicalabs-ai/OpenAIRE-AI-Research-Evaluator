@@ -13,6 +13,7 @@ data/
 checkpoints/
 *.bin
 *.pth
+*.sql.gz
 
 # WandB
 wandb/
