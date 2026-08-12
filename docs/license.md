@@ -21,7 +21,7 @@ If you reuse this work, please cite:
 ```bibtex
 @software{echo_dsrn_research_intent_clf,
   author = {Massimo Roberto Scamarcia},
-  title = {OpenAIRE Graph Evaluator: Research paper classifier and multi-model LLM-as-Judge pipeline},
+  title = {OpenAIRE Graph Evaluator: Research paper classifier and LLM-as-Judge pipeline},
   year = {2026},
   url = {https://huggingface.co/collections/ethicalabs/openaire-ai-hackathon-2026}
 }

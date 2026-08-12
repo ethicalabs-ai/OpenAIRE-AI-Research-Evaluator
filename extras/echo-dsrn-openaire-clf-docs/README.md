@@ -6,7 +6,7 @@ colorTo: indigo
 sdk: static
 pinned: false
 license: cc-by-4.0
-short_description: Echo-DSRN multi-model LLM-as-Judge docs
+short_description: Echo-DSRN LLM-as-Judge docs
 ---
 
 # Echo-DSRN OpenAIRE CLF Docs

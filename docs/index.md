@@ -1,4 +1,4 @@
-# OpenAIRE Graph Evaluator: Research paper classifier and multi-model LLM-as-Judge pipeline
+# OpenAIRE Graph Evaluator: Research paper classifier and LLM-as-Judge pipeline
 
 A multi-model LLM-as-Judge pipeline that builds annotation datasets to train [Echo-DSRN](https://github.com/ethicalabs-ai/Echo-DSRN) intent classifiers — entry for the [OpenAIRE AI Hackathon 2026](https://innovation.openaire.eu/component/content/article/openaire-ai-hackathon.html), co-organised by OpenAIRE and Alien Intelligence.
 
