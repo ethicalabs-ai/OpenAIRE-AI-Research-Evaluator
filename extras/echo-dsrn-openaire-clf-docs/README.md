@@ -1,15 +1,15 @@
 ---
-title: Echo-DSRN OpenAIRE CLF Docs
+title: OpenAIRE Graph Evaluator Documentation
 emoji: 📚
 colorFrom: blue
 colorTo: indigo
 sdk: static
 pinned: false
 license: cc-by-4.0
-short_description: Echo-DSRN LLM-as-Judge docs
+short_description: Research paper classifier and LLM-as-Judge pipeline
 ---
 
-# Echo-DSRN OpenAIRE CLF Docs
+# OpenAIRE Graph Evaluator Documentation
 
 Rendered documentation for the **Echo-DSRN research-intent evaluator** —
 a multi-model LLM-as-Judge pipeline built for the OpenAIRE AI Hackathon 2026.
