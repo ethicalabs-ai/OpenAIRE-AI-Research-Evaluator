@@ -57,13 +57,14 @@ uv run alembic -c backend/alembic.ini upgrade head
 Point at a lemonade or llama.cpp server via `.env`:
 
 ```env
-LLM_BASE_URL=http://192.168.1.40:13305/v1
+LLM_BASE_URL=http://<llm-server-host>:<llm-server-port>/v1
 ```
 
-**Batch runner** — cycles through all models and sources:
+**Batch runner** — cycles through all models and sources (via the Makefile):
 
 ```bash
-./scripts/run_judges.sh 100
+make judge N=100          # sync
+make judge-async N=100    # async, via Celery
 ```
 
 **Single run** — one model, one source:

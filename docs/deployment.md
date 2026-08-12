@@ -26,7 +26,7 @@ helm install evaluator ./helm/openaire-research-evaluator \
   --set secrets.hfToken=hf_... \
   --set secrets.secretKey=$(openssl rand -hex 32) \
   --set ingress.host=openaire-eval.local \
-  --set config.llmBaseUrl=http://192.168.1.66:13305/v1
+  --set config.llmBaseUrl=http://<llm-server-host>:<llm-server-port>/v1
 ```
 
 Or create a `values.local.yaml`:
@@ -40,7 +40,7 @@ secrets:
 ingress:
   host: openaire-eval.local
 config:
-  llmBaseUrl: http://192.168.1.66:13305/v1
+  llmBaseUrl: http://<llm-server-host>:<llm-server-port>/v1
 ```
 
 ```bash

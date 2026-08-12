@@ -13,7 +13,7 @@ Container path: `/app/assets/topics.txt`
 Point at a lemonade or llama.cpp server via `.env`:
 
 ```env
-LLM_BASE_URL=http://192.168.1.40:13305/v1
+LLM_BASE_URL=http://<llm-server-host>:<llm-server-port>/v1
 ```
 
 Migrate the database:
@@ -57,7 +57,7 @@ lemonade --host 0.0.0.0 load --pinned Qwen3.6-35B-A3B-GGUF
 ```
 
 ```env
-LLM_BASE_URL=http://192.168.1.40:13305/v1
+LLM_BASE_URL=http://<llm-server-host>:<llm-server-port>/v1
 ```
 
 ### Docker — LLM on host
@@ -75,7 +75,7 @@ The `docker-compose.yaml` already includes `extra_hosts: host.docker.internal:ho
 Loads models on lemonade, judges papers inline:
 
 ```bash
-./scripts/run_judges.sh 100
+make judge N=100
 ```
 
 Cycles through the configured GGUF models (Qwen3.6, Nemotron, Gemma, GPT-OSS, DeepSeek, GLM, LFM2, Phi, SmolLM, Granite, Bonsai) against the catalog source.
@@ -85,7 +85,7 @@ Cycles through the configured GGUF models (Qwen3.6, Nemotron, Gemma, GPT-OSS, De
 Dispatches Celery tasks to the worker, no model loading:
 
 ```bash
-./scripts/run_judges.sh 100 --async
+make judge-async N=100
 ```
 
 ## Kubernetes (k3s)
@@ -94,7 +94,7 @@ Run the judge CLI directly in the deployed web pod:
 
 ```bash
 kubectl exec -it deployment/evaluator-openaire-research-evaluator-web -- \
-  env LLM_BASE_URL=http://192.168.1.66:13305/v1 \
+  env LLM_BASE_URL=http://<llm-server-host>:<llm-server-port>/v1 \
   python backend/judge_cli.py \
     --source catalog --n 100 \
     --model gpt-oss-20b-mxfp4-GGUF \

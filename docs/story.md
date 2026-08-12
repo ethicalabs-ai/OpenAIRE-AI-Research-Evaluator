@@ -68,7 +68,7 @@ Running the full panel of 20 models across thousands of papers synchronously is 
 We added a Celery + Redis worker queue: the CLI dispatches fine-grained per-paper tasks, and workers pull from the queue and process them asynchronously. The same pipeline can run with a single command:
 
 ```bash
-./scripts/run_judges.sh 100 --async
+make judge-async N=100
 ```
 
 This dispatches 100 papers per model (2,000 total tasks for the full panel) to the worker pool. The worker handles classification, LLM judging, and database persistence in one atomic unit, with idempotency guarantees — no paper is judged twice by the same model.
