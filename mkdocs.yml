@@ -1,6 +1,9 @@
 site_name: OpenAIRE-AI-Research-Evaluator
 site_description: Multi-model LLM-as-Judge pipeline for the OpenAIRE AI Hackathon 2026
 repo_url: https://github.com/ethicalabs-ai/OpenAIRE-AI-Research-Evaluator
+# HF static Spaces do not serve index.html for directory URLs (story/ falls
+# back to the HF site) — link to explicit story/index.html instead.
+use_directory_urls: false
 theme:
   name: material
   palette:
