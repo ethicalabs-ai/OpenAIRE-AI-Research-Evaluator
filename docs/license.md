@@ -18,6 +18,11 @@ This project is submitted to the [OpenAIRE AI Hackathon 2026](https://innovation
 
 If you reuse this work, please cite:
 
-> _OpenAIRE-AI-Research-Evaluator — Multi-model LLM-as-Judge pipeline for research intent classification._
-> ethicalabs.ai, 2026. Apache-2.0 / CC-BY 4.0.
-> [github.com/ethicalabs-ai/OpenAIRE-AI-Research-Evaluator](https://github.com/ethicalabs-ai/OpenAIRE-AI-Research-Evaluator)
+```bibtex
+@software{echo_dsrn_research_intent_clf,
+  author = {Massimo Roberto Scamarcia},
+  title = {OpenAIRE Graph Evaluator: Research paper classifier and multi-model LLM-as-Judge pipeline},
+  year = {2026},
+  url = {https://huggingface.co/collections/ethicalabs/openaire-ai-hackathon-2026}
+}
+```
