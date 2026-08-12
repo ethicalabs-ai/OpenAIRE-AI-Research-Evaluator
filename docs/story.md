@@ -106,9 +106,9 @@ This project is designed to be remixed. Here is what you can take and adapt:
 | Component | Reuse scenario |
 |---|---|
 | **LLM-as-Judge pipeline** | Swap the 6-class taxonomy for your own labels. Point at any OpenAI-compatible server. The judge schema, prompt, and evaluation scripts are label-agnostic. |
-| **OpenAIRE Graph integration** | The keyword streaming + multilingual query approach works for any research domain. The fetcher handles both arXiv and OpenAIRE APIs. |
+| **OpenAIRE Graph integration** | The keyword streaming approach works for any research domain. The fetcher handles both arXiv and OpenAIRE APIs. |
 | **Async Celery worker pattern** | Fine-grained per-paper tasks with lazy database imports and idempotency — copy the pattern for any batch annotation workflow. |
-| **Dataset preparation & export scripts** | `prepare_research_intent.py` / `expand_multilingual_openaire.py` build balanced, multilingual training sets from public APIs; `export_llm_judge_dataset.py` and `export_golden_dataset.py` produce the published LLM-as-Judge and golden CLF datasets (per-model ChatML exports, consensus labelling with 6 classes incl. Unclassifiable, stratified splits). Adapt the keyword banks, label taxonomy, and consensus rules. |
+| **Dataset preparation & export scripts** | `prepare_research_intent.py` builds balanced training sets from public APIs; `export_llm_judge_dataset.py` and `export_golden_dataset.py` produce the published LLM-as-Judge and golden CLF datasets (per-model ChatML exports, consensus labelling with 6 classes incl. Unclassifiable, stratified splits). Adapt the keyword banks, label taxonomy, and consensus rules. |
 | **Echo-DSRN classifier** | The model is on Hugging Face (gated — request access). `model.classify(title + abstract, tokenizer)` is the entire API. Swap the classification head for your own labels. |
 
 ## License
