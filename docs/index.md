@@ -2,7 +2,7 @@
 
 A multi-model LLM-as-Judge pipeline that builds annotation datasets to train [Echo-DSRN](https://github.com/ethicalabs-ai/Echo-DSRN) intent classifiers — entry for the [OpenAIRE AI Hackathon 2026](https://innovation.openaire.eu/component/content/article/openaire-ai-hackathon.html), co-organised by OpenAIRE and Alien Intelligence.
 
-The app streams scientific paper metadata from the [OpenAIRE Graph API](https://graph.openaire.eu), classifies research intent with a 98M-parameter [Echo-DSRN](https://www.ethicalabs.ai/research/echo-dsrn/) model (sub-millisecond CPU inference), and enlists multiple LLMs as judges to build a golden consensus dataset.
+The app streams scientific paper metadata from the [OpenAIRE Graph API](https://graph.openaire.eu), classifies research intent with a 98M-parameter [Echo-DSRN](https://www.ethicalabs.ai/research/echo-dsrn/) model (fast CPU inference), and enlists multiple LLMs as judges to build a golden consensus dataset.
 
 ## Features
 

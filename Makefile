@@ -131,6 +131,18 @@ docs-serve: ## Serve MkDocs documentation locally (http://localhost:8000)
 docs-build: ## Build MkDocs static site into site/
 	uv run mkdocs build
 
+docs-publish: ## Build docs and publish static Space to HuggingFace (SPACE_ID overridable, default: ethicalabs/echo-dsrn-openaire-clf-docs)
+	@SPACE_ID=$${SPACE_ID:-ethicalabs/echo-dsrn-openaire-clf-docs}; \
+	HF_TOKEN=$$(grep '^HF_TOKEN=' .env | cut -d'=' -f2- | head -1); \
+	uv run mkdocs build && \
+	cp -r site/. extras/echo-dsrn-openaire-clf-docs/ && \
+	HF_TOKEN=$$HF_TOKEN uv run hf upload "$$SPACE_ID" extras/echo-dsrn-openaire-clf-docs . --repo-type space
+
+docs-publish-static: ## Ensure the target Space exists as a static Space (idempotent)
+	@SPACE_ID=$${SPACE_ID:-ethicalabs/echo-dsrn-openaire-clf-docs}; \
+	HF_TOKEN=$$(grep '^HF_TOKEN=' .env | cut -d'=' -f2- | head -1); \
+	HF_TOKEN=$$HF_TOKEN uv run hf repos create "$$SPACE_ID" --type space --sdk static
+
 ## --- Maintenance ---
 
 clean: ## Remove Python cache and build artifacts

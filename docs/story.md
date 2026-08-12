@@ -20,7 +20,7 @@ Our question was: can we automate this with a feedback loop that combines a fast
 
 We started with [**Echo-DSRN**](https://www.ethicalabs.ai/research/echo-dsrn/), a recurrent neural network developed built from scratch by us.
 
-Echo-DSRN is small (98M-114M parameters) and runs on CPU with sub-millisecond latency, making it suitable for real-time streaming applications where a GPU is unavailable or impractical.
+Echo-DSRN is small (98M-114M parameters) and runs efficiently on CPU, making it suitable for real-time streaming applications where a GPU is unavailable or impractical.
 
 We fine-tuned it on a 5-class research intent taxonomy:
 
@@ -95,7 +95,7 @@ Three findings stand out:
 
 2. **The OpenAIRE Graph is a live data flywheel.** New papers appear daily. A streaming classifier backed by LLM judges can continuously expand the training set without manual curation.
 
-3. **CPU-first is viable.** Echo-DSRN-98M classifies in under a millisecond on CPU, making it deployable anywhere — from a cloud VM to a Raspberry Pi. The heavy lifting (LLM judging) is offloaded to a remote GPU server, but the classification itself is free.
+3. **CPU-first is viable.** Echo-DSRN-98M runs fast enough on CPU to be deployable anywhere — from a cloud VM to a Raspberry Pi. The heavy lifting (LLM judging) is offloaded to a remote GPU server, but the classification itself is free.
 
 ---
 

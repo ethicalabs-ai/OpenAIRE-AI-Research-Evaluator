@@ -41,6 +41,6 @@ print(label, probs)
 | Attention heads | 4 |
 | Vocab size | 32,017 tokens |
 | Precision | bfloat16 |
-| Inference | Sub-millisecond on CPU |
+| Inference | Fast on CPU |
 
 > Run `curl /api/model/card` for live specs from the loaded model.

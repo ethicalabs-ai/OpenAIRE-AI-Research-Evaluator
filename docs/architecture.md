@@ -4,7 +4,7 @@
 |---|---|
 | **Frontend** | Vue 3 / Vite dashboard — tabs: Model Card, Collab Hub, OpenAIRE Stream, Free Text, Saved History |
 | **Backend** | FastAPI — inference, arXiv/OpenAIRE proxy, LLM judge orchestration, OAuth |
-| **Classifier** | Echo-DSRN-98M (`EchoForSequenceClassification`) — sub-millisecond CPU inference |
+| **Classifier** | Echo-DSRN-98M (`EchoForSequenceClassification`) — fast CPU inference |
 | **Annotation DB** | SQLite (`data/collaborative.db`) — user classifications and LLM judge labels |
 | **Worker** | Celery + Redis — async classification and LLM-as-Judge queue |
 

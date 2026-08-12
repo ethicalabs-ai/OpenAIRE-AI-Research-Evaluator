@@ -86,6 +86,6 @@ for line in resp.iter_lines():
 1. Request hits SSE endpoint → Bearer token validated
 2. Celery task `classify_mcp` enqueued to Redis
 3. Worker loads Echo-DSRN-98M (baked into Docker image, no HF download)
-4. Sub-millisecond CPU inference → result streamed via SSE
+4. Fast CPU inference → result streamed via SSE
 
 No papers saved. No database writes. Stateless.
