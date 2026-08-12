@@ -112,7 +112,7 @@ Every paper classified on the platform becomes part of a growing annotation data
 - Save papers to your private history
 - Log in with your HuggingFace account
 
-The multi-model LLM-as-Judge pipeline (11 LLMs across Qwen, Gemma, GPT-OSS, and other families) validates Echo-DSRN predictions.
+The multi-model LLM-as-Judge pipeline (20 LLMs across Qwen, Gemma, Nemotron, GPT-OSS, LFM2, Phi, SmolLM, Granite, Bonsai, GLM and Gemini families) validates Echo-DSRN predictions.
 
 But LLM consensus is no substitute for human expertise — your domain knowledge helps us catch edge cases the models miss.
 

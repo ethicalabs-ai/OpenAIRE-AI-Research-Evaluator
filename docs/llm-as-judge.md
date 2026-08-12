@@ -78,7 +78,7 @@ Loads models on lemonade, judges papers inline:
 ./scripts/run_judges.sh 100
 ```
 
-Cycles through 11 GGUF models (Qwen3.6, Nemotron, Gemma, GPT-OSS, DeepSeek, GLM) against the catalog source.
+Cycles through the configured GGUF models (Qwen3.6, Nemotron, Gemma, GPT-OSS, DeepSeek, GLM, LFM2, Phi, SmolLM, Granite, Bonsai) against the catalog source.
 
 ## Batch Runner — Async
 

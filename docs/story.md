@@ -59,11 +59,11 @@ Each judge receives the paper title, abstract, and Echo's prediction, then retur
 
 We support any OpenAI-compatible inference server: llama.cpp, vLLM, LM Studio, Google Gemini, and lemonade for local GGUF model orchestration.
 
-We assembled a panel of 11 models spanning architectures and parameter counts: `Qwen3.6-35B`, `Qwen3.6-27B`, `Qwen3.5-35B`, `Nemotron-3-Nano-30B`, `Gemma-4-26B`, `GPT-OSS-20B`, `GPT-OSS-120B`, `DeepSeek-Qwen3-8B`, `GLM-4.7-Flash`, `Qwen3.6-35B-A3B`, and `Qwen3.5-4B`.
+We assembled a panel of 20 models spanning architectures and parameter counts: `Qwen3.6-35B`, `Qwen3.6-27B`, `Qwen3.5-35B`, `Nemotron-3-Nano-30B`, `Gemma-4-26B`, `GPT-OSS-20B`, `GPT-OSS-120B`, `DeepSeek-Qwen3-8B`, `GLM-4.7-Flash`, `Qwen3.6-35B-A3B`, and `Qwen3.5-4B`, later extended with LFM2, Phi, SmolLM, Granite, Bonsai, Gemma-4-E2B/E4B and Gemini.
 
 ### Phase 4 — Scale with Celery
 
-Running 11 models across thousands of papers synchronously is slow — each paper needs an LLM API call with its own latency.
+Running the full panel of 20 models across thousands of papers synchronously is slow — each paper needs an LLM API call with its own latency.
 
 We added a Celery + Redis worker queue: the CLI dispatches fine-grained per-paper tasks, and workers pull from the queue and process them asynchronously. The same pipeline can run with a single command:
 
@@ -71,7 +71,7 @@ We added a Celery + Redis worker queue: the CLI dispatches fine-grained per-pape
 ./scripts/run_judges.sh 100 --async
 ```
 
-This dispatches 100 papers per model (1,100 total tasks) to the worker pool. The worker handles classification, LLM judging, and database persistence in one atomic unit, with idempotency guarantees — no paper is judged twice by the same model.
+This dispatches 100 papers per model (2,000 total tasks for the full panel) to the worker pool. The worker handles classification, LLM judging, and database persistence in one atomic unit, with idempotency guarantees — no paper is judged twice by the same model.
 
 ### Phase 5 — The Golden Dataset
 
@@ -101,7 +101,7 @@ Three findings stand out:
 
 The full pipeline ran on 10,001 live OpenAIRE papers, producing the golden dataset that will fine-tune Echo-DSRN v0.1.4:
 
-- **170,403 LLM verdicts** from a panel of **19 models** (the panel grew from the initial 11 as we validated more judges).
+- **170,403 LLM verdicts** from a panel of **20 models** (the panel grew from the initial 11 as we validated more judges).
 - **10,001-paper golden dataset** (7,999 train / 1,001 val / 1,001 test), each paper judged by a **median of 17 models** (max 20).
 - **Median 81% top-label consensus**; 52% of papers reach ≥80% judge agreement; 17% are unanimous.
 - **Before/after:** Echo-DSRN v0.1.3, trained on the 6,000-record seed set, agreed with the panel only **32% of the time** on the live stream (judge-by-judge: 12.5%–41.3%). The seed data did not represent the real, noisy stream — which is exactly what retraining on the golden set fixes.
