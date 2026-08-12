@@ -97,6 +97,17 @@ Three findings stand out:
 
 3. **CPU-first is viable.** Echo-DSRN-98M runs fast enough on CPU to be deployable anywhere — from a cloud VM to a Raspberry Pi. The heavy lifting (LLM judging) is offloaded to a remote GPU server, but the classification itself is free.
 
+### The numbers (final results)
+
+The full pipeline ran on 10,001 live OpenAIRE papers, producing the golden dataset that will fine-tune Echo-DSRN v0.1.4:
+
+- **170,403 LLM verdicts** from a panel of **19 models** (the panel grew from the initial 11 as we validated more judges).
+- **10,001-paper golden dataset** (7,999 train / 1,001 val / 1,001 test), each paper judged by a **median of 17 models** (max 20).
+- **Median 81% top-label consensus**; 52% of papers reach ≥80% judge agreement; 17% are unanimous.
+- **Before/after:** Echo-DSRN v0.1.3, trained on the 6,000-record seed set, agreed with the panel only **32% of the time** on the live stream (judge-by-judge: 12.5%–41.3%). The seed data did not represent the real, noisy stream — which is exactly what retraining on the golden set fixes.
+- **A discovery the seed set hid:** **10.2% (1,018 papers) are unclassifiable** — garbled, non-English, or math-only records — so we added a sixth label, *Unclassifiable*. The real distribution (Applied 39%, Review 22%, Methodology 22%, Theoretical 4%, Dataset 2%, Unclassifiable 10%) differs radically from the artificially balanced seed set.
+- **Cost:** classification is sub-millisecond on CPU; the entire annotation campaign ran with one operator and a handful of hub volunteers.
+
 ---
 
 ## What Others Can Reuse
