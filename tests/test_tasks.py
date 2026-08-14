@@ -275,3 +275,60 @@ def test_process_paper_remote_calls_local_classifier(
     )
 
     assert classify_called[0], "Echo classifier must be called locally in remote mode"
+
+
+# ── judge_batch tests ─────────────────────────────────────────────────────────
+
+
+def test_judge_batch_dedup_and_counts(monkeypatch):
+    """Duplicate DOIs within a run are skipped; success/failure counted."""
+    import judge_cli
+
+    calls = []
+
+    def fake_process(paper, model, dry_run, db, **kwargs):
+        calls.append(paper["doi"])
+        return paper["doi"] != "10.1234/err"
+
+    monkeypatch.setattr(judge_cli, "process_paper", fake_process)
+
+    papers = [
+        {"doi": "10.1234/dup", "title": "D1", "abstract": "a", "source": "openaire"},
+        {"doi": "10.1234/dup", "title": "D1", "abstract": "a", "source": "openaire"},
+        {"doi": "10.1234/new", "title": "N", "abstract": "a", "source": "openaire"},
+        {"doi": "10.1234/err", "title": "E", "abstract": "a", "source": "openaire"},
+    ]
+    seen: set[str] = set()
+    newly, duplicates, errors = judge_cli.judge_batch(
+        papers, "test-model", False, None, seen=seen, target=10
+    )
+
+    assert newly == 2  # first occurrence of dup + new
+    assert duplicates == 1  # second occurrence of 10.1234/dup
+    assert errors == 1  # 10.1234/err returned False
+    assert seen == {"10.1234/dup", "10.1234/new", "10.1234/err"}
+    assert len(calls) == 3  # duplicate never re-judged
+
+
+def test_judge_batch_respects_target(monkeypatch):
+    """judge_batch stops once the target of new annotations is reached."""
+    import judge_cli
+
+    calls = []
+
+    def fake_process(paper, model, dry_run, db, **kwargs):
+        calls.append(paper["doi"])
+        return True
+
+    monkeypatch.setattr(judge_cli, "process_paper", fake_process)
+
+    papers = [
+        {"doi": f"10.1234/p{i}", "title": f"T{i}", "abstract": "a", "source": "arxiv"}
+        for i in range(5)
+    ]
+    newly, _, _ = judge_cli.judge_batch(
+        papers, "test-model", False, None, seen=set(), target=2
+    )
+
+    assert newly == 2
+    assert len(calls) == 2  # stopped after reaching the target

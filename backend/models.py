@@ -6,6 +6,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -47,11 +48,12 @@ class PaperRecord(Base):
     title = Column(String, nullable=False)
     abstract = Column(String, nullable=False)
     initial_intent = Column(String, nullable=True)  # Label predicted by local model
-    source = Column(String, default="arxiv")  # 'arxiv', 'openaire', 'custom'
+    # 'arxiv', 'openaire', 'custom'
+    source = Column(String, default="arxiv", index=True)
     # Version of the model whose round this paper was imported in
     # (e.g. "v0.1.3" for legacy rows, "v0.1.4" for the current round).
     model_version = Column(String, nullable=True, index=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
     annotations = relationship(
         "Annotation", back_populates="paper", cascade="all, delete-orphan"
@@ -116,6 +118,10 @@ class Annotation(Base):
             "(user_id IS NULL AND llm_model IS NOT NULL)",
             name="ck_annotation_single_annotator",
         ),
+        # Join + round-scoping: every hub query joins papers to annotations on
+        # (paper_doi, model_version) — without this, Postgres sorts 200k+
+        # rows on disk per request.
+        Index("ix_annotations_paper_doi_version", "paper_doi", "model_version"),
     )
 
 
