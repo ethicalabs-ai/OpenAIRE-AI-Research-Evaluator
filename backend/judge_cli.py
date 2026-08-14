@@ -425,6 +425,54 @@ def load_dataset_file(path: str) -> list[dict]:
     return records
 
 
+def judge_batch(
+    papers: list[dict],
+    model: str,
+    dry_run: bool,
+    db,
+    *,
+    remote_url: str = "",
+    remote_api_key: str = "",
+    force: bool = False,
+    seen: set[str],
+    target: int,
+    delay: float = 0.0,
+) -> tuple[int, int, int]:
+    """Judge a fetched page, skipping DOIs already handled this run.
+
+    Returns ``(newly_judged, duplicate_skips, error_count)``. ``seen`` is
+    updated in place — duplicate papers recur across keyword queries (and,
+    with ``--sort fresh``, the newest papers match many queries).
+    """
+    newly_judged = 0
+    duplicates = 0
+    errors = 0
+    for paper in papers:
+        if newly_judged >= target:
+            break
+        doi = paper["doi"].strip().lower().removeprefix("https://doi.org/")
+        if doi in seen:
+            duplicates += 1
+            continue
+        seen.add(doi)
+        ok = process_paper(
+            paper,
+            model,
+            dry_run,
+            db,
+            remote_url=remote_url,
+            remote_api_key=remote_api_key,
+            force=force,
+        )
+        if ok:
+            newly_judged += 1
+        else:
+            errors += 1
+        if delay:
+            time.sleep(delay)
+    return newly_judged, duplicates, errors
+
+
 def fetch_remote_catalog(
     api_url: str,
     api_key: str,
@@ -782,11 +830,16 @@ def run(args: argparse.Namespace) -> None:
             fetcher = fetch_arxiv if args.source == "arxiv" else fetch_openaire
             queries = list(SEARCH_QUERIES)
             random.shuffle(queries)
+            seen: set[str] = set()
+            total_duplicates = 0
+            total_errors = 0
+            consecutive_no_progress = 0
+            no_progress_stop = False
             for query in queries:
-                if judged >= args.n:
+                if judged >= args.n or no_progress_stop:
                     break
                 for page in range(1, 6):  # paginate up to 5 pages per query
-                    if judged >= args.n:
+                    if judged >= args.n or no_progress_stop:
                         break
                     log.info(f"\n🔍 Query: '{query}'  (page {page})")
                     if args.source == "openaire":
@@ -803,34 +856,49 @@ def run(args: argparse.Namespace) -> None:
                     if not papers:
                         break
                     random.shuffle(papers)
-                    fresh = 0
-                    for paper in papers:
-                        if judged >= args.n:
-                            break
-                        ok = process_paper(
-                            paper,
-                            model,
-                            args.dry_run,
-                            db,
-                            remote_url=remote_url,
-                            remote_api_key=remote_key,
-                            force=force,
-                        )
-                        if ok:
-                            judged += 1
-                            fresh += 1
-                            log.info(f"  ✅ {judged}/{args.n} annotated")
-                        time.sleep(args.delay)
+                    fresh, duplicates, errors = judge_batch(
+                        papers,
+                        model,
+                        args.dry_run,
+                        db,
+                        remote_url=remote_url,
+                        remote_api_key=remote_key,
+                        force=force,
+                        seen=seen,
+                        target=args.n - judged,
+                        delay=args.delay,
+                    )
+                    judged += fresh
+                    total_duplicates += duplicates
+                    total_errors += errors
+                    for i in range(fresh):
+                        log.info(f"  ✅ {judged - fresh + i + 1}/{args.n} annotated")
                     if fresh == 0:
-                        log.info(f"  (all {len(papers)} already judged — next page)")
-                        continue
-                    # Found fresh papers on this page; continue to next page
+                        consecutive_no_progress += 1
+                        log.info(
+                            f"  (page yielded no new papers — {duplicates} duplicates, "
+                            f"{errors} errors)"
+                        )
+                        if consecutive_no_progress >= 3:
+                            log.warning(
+                                "  ⚠ 3 consecutive pages with no new papers — stopping "
+                                "early. Papers exhausted or the LLM/judge server is "
+                                "failing; check the errors above."
+                            )
+                            no_progress_stop = True
+                            break
+                    else:
+                        consecutive_no_progress = 0
                 log.info(f"  ✓ Query '{query[:40]}' complete")
     finally:
         if db is not None:
             db.close()
 
-    log.info(f"\n🏁 Done — {judged} annotations saved (dry_run={args.dry_run})")
+    log.info(
+        f"\n🏁 Done — {judged} annotations saved (dry_run={args.dry_run}; "
+        f"{total_duplicates} duplicate DOIs skipped, "
+        f"{total_errors} skipped/failed (already judged in DB, LLM errors, or remote errors))"
+    )
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
