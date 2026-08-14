@@ -274,6 +274,23 @@ def post_annotation_remote(
         return "error"
 
 
+def _remote_paper_exists(doi: str, api_url: str) -> bool:
+    """Whether the remote server already has this paper in its catalog.
+
+    Live sources (openaire/arxiv) re-fetch papers OpenAIRE served before;
+    judging them again stamps a current-round verdict onto an old-round paper
+    and inflates the round's annotation count. Skip them unless --force.
+    """
+    try:
+        r = requests.get(
+            f"{api_url.rstrip('/')}/api/annotations/papers/{doi}",
+            timeout=15,
+        )
+        return r.status_code == 200
+    except requests.RequestException:
+        return False
+
+
 def process_paper(
     paper: dict,
     model: str,
@@ -283,6 +300,7 @@ def process_paper(
     remote_url: str = "",
     remote_api_key: str = "",
     force: bool = False,
+    skip_catalogued: bool = True,
 ) -> bool:
     """Classify + judge a single paper. Returns True if an annotation was saved."""
     doi = paper["doi"].strip().lower().removeprefix("https://doi.org/")
@@ -298,6 +316,16 @@ def process_paper(
             .first()
         )
         if existing:
+            return False
+
+    # ── 1b. Remote live sources: skip papers already in the remote catalog ──
+    # OpenAIRE re-serves recently-collected papers across queries; judging them
+    # again would stamp current-round verdicts onto old-round papers and inflate
+    # the round's counts. The catalog source (skip_catalogued=False) already
+    # filters via exclude_model.
+    if is_remote and not force and skip_catalogued:
+        if _remote_paper_exists(doi, remote_url):
+            log.info(f"  ⏭️ Already catalogued (remote): {doi[:60]}")
             return False
 
     # ── 2. Determine initial_intent ──────────────────────────────────────────
@@ -784,6 +812,7 @@ def run(args: argparse.Namespace) -> None:
                         remote_url=remote_url,
                         remote_api_key=remote_key,
                         force=force,
+                        skip_catalogued=False,  # already filtered via exclude_model
                     )
                     if ok:
                         judged += 1

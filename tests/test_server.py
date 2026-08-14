@@ -566,6 +566,61 @@ def test_judge_rejudge_updates_initial_intent(temp_db, monkeypatch):
         db.close()
 
 
+def test_judge_skipped_on_noop_rejudge(temp_db, monkeypatch):
+    """An identical re-judge returns 'skipped'; a changed prediction returns 'saved'
+    and refreshes the stored label."""
+    monkeypatch.setattr("server.API_KEY", "test-key")
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    import server as _srv
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_srv.app)
+    headers = {"Authorization": "Bearer test-key"}
+    payload = {
+        "doi": "10.1234/judge-noop",
+        "title": "T",
+        "abstract": "A",
+        "llm_model": "test-model",
+        "initial_intent": "Applied",
+        "proposed_label": "Methodology",
+        "is_flagged": False,
+        "flag_reason": "",
+        "comment": "c",
+    }
+
+    r1 = client.post("/api/annotations/judge", json=payload, headers=headers)
+    assert r1.status_code == 200
+    assert r1.json()["status"] == "saved"
+
+    # Identical re-judge (same verdict + same prediction) → nothing to persist
+    r2 = client.post("/api/annotations/judge", json=payload, headers=headers)
+    assert r2.status_code == 200
+    assert r2.json()["status"] == "skipped"
+
+    # Changed prediction → saved + paper's label refreshed
+    r3 = client.post(
+        "/api/annotations/judge",
+        json={**payload, "initial_intent": "Theoretical"},
+        headers=headers,
+    )
+    assert r3.status_code == 200
+    assert r3.json()["status"] == "saved"
+
+    from database import SessionLocal
+    from models import PaperRecord
+
+    db = SessionLocal()
+    try:
+        p = (
+            db.query(PaperRecord)
+            .filter(PaperRecord.doi == "10.1234/judge-noop")
+            .first()
+        )
+        assert p.initial_intent == "Theoretical"
+    finally:
+        db.close()
+
+
 def test_hub_read_only_blocks_writes(temp_db, monkeypatch):
     """When HUB_READ_ONLY is set, vote/judge/import return 503."""
     monkeypatch.setattr("server.HUB_READ_ONLY", True)

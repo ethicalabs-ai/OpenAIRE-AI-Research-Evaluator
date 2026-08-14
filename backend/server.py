@@ -1419,6 +1419,7 @@ def judge_annotation(
 
     # Ensure paper record exists
     p = db.query(PaperRecord).filter(PaperRecord.doi == clean_doi).first()
+    prediction_changed = False
     if not p:
         p = PaperRecord(
             doi=clean_doi,
@@ -1430,11 +1431,12 @@ def judge_annotation(
         )
         db.add(p)
         db.flush()
-    elif req.initial_intent:
+    elif req.initial_intent and p.initial_intent != req.initial_intent:
         # Re-judged papers refresh the stored prediction (the CLI now sends
         # the locally computed Echo label) — previously only the annotation
         # was upserted, so re-runs left placeholder labels in place.
         p.initial_intent = req.initial_intent
+        prediction_changed = True
 
     # Upsert: overwrite existing annotation for this (doi, model)
     existing = (
@@ -1446,6 +1448,18 @@ def judge_annotation(
         .first()
     )
     if existing:
+        # No-op re-judgment (same verdict, same prediction): nothing to persist.
+        # Returning "skipped" lets the judge CLI distinguish re-runs from new
+        # annotations instead of counting every POST toward --n.
+        unchanged = (
+            existing.proposed_label == req.proposed_label
+            and existing.is_flagged == req.is_flagged
+            and (existing.flag_reason or "") == (req.flag_reason or "")
+            and (existing.comment or "") == (req.comment or "")
+            and not prediction_changed
+        )
+        if unchanged:
+            return {"status": "skipped"}
         existing.proposed_label = req.proposed_label
         existing.is_flagged = req.is_flagged
         existing.flag_reason = req.flag_reason
