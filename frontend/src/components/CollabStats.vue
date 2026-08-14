@@ -34,13 +34,32 @@
       📦 The collaborative hub is now archived. Annotation contributions are
       closed. All curated datasets and models are available on HuggingFace.
     </div>
+    <div class="round-banner">
+      <template v-if="archiveVersion">
+        📦 Viewing archive of round <strong>{{ archiveVersion }}</strong> ·
+        active round: <strong>{{ stats.model_version || "…" }}</strong>
+      </template>
+      <template v-else>
+        Active annotation round:
+        <strong>{{ stats.model_version || "…" }}</strong>
+      </template>
+      <template v-if="stats.archive_versions && stats.archive_versions.length">
+        · Archives:
+        <a
+          v-for="av in stats.archive_versions"
+          :key="av"
+          :href="`/collab/archive/${av}/`"
+          class="archive-round-link"
+          >{{ av }}</a
+        >
+      </template>
+    </div>
     <div class="export-box border-left">
       <h4>📦 Curated Datasets</h4>
       <p>
-        Download the LLM-as-Judge and gold-standard datasets, along with
-        the current Echo-DSRN intent classifier
-        (ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF).
-        A v0.1.4 model fine-tuned on the golden dataset is coming soon.
+        Download the LLM-as-Judge and gold-standard datasets, along with the
+        current Echo-DSRN intent classifier
+        (ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF).
       </p>
       <a
         :href="hfDatasetsUrl"
@@ -56,7 +75,11 @@
 
 <script>
 export default {
-  props: { stats: { type: Object, default: () => ({}) } },
+  props: {
+    stats: { type: Object, default: () => ({}) },
+    // Set when the collab tab is showing a read-only archive round.
+    archiveVersion: { type: String, default: "" },
+  },
   setup() {
     const hfDatasetsUrl = import.meta.env.VITE_HF_DATASETS_URL || "";
     return { hfDatasetsUrl };
@@ -106,6 +129,20 @@ export default {
 }
 .text-red {
   color: #ef4444;
+}
+.round-banner {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+.round-banner strong {
+  color: var(--accent-blue);
+}
+.archive-round-link {
+  margin-left: 0.35rem;
+  color: var(--accent-blue);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(0, 242, 254, 0.4);
 }
 .export-box h4 {
   color: var(--text-primary);

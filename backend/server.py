@@ -5,7 +5,7 @@ import uuid
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -23,17 +23,16 @@ from auth_utils import (
     require_current_user,
 )
 from celery_app import celery_app
-from config import API_KEY, HUB_READ_ONLY
+from config import API_KEY, HUB_READ_ONLY, INTENT_CLASS_LABELS, MODEL_VERSION
 from database import get_db
-from fastapi import Depends, Request, Response, Header
+from fastapi import Depends, Header, Request, Response
 from intent_classifier import classify_paper, get_classifier, is_loaded
-from sqlalchemy.orm import Session
-from sqlalchemy import func, case
-
 from models import Annotation as DBAnnotation
 from models import PaperRecord
 from models import SavedPaper as DBSavedPaper
 from models import User as DBUser
+from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy.orm import Session
 
 
 def _require_hub_writable():
@@ -44,6 +43,34 @@ def _require_hub_writable():
             detail="The collaborative hub is in read-only mode. "
             "The curated datasets and fine-tuned model are available on HuggingFace.",
         )
+
+
+def _resolve_version(version: str = "") -> str:
+    """Return the round to scope hub queries to.
+
+    Empty string resolves to the configured active round (MODEL_VERSION);
+    an explicit value (e.g. ``v0.1.3`` from the archive route) is used as-is.
+    """
+    return version.strip() or MODEL_VERSION
+
+
+def _version_scoped_papers(db: Session, version: str):
+    """Base PaperRecord query restricted to ``version``.
+
+    A paper belongs to a round when it was imported during it, or when it
+    received an annotation during it (papers imported in an earlier round
+    that get re-annotated stay visible in both views).
+    """
+    annotated_in_round = select(DBAnnotation.paper_doi).where(
+        DBAnnotation.model_version == version
+    )
+    return db.query(PaperRecord).filter(
+        PaperRecord.source != "dataset",
+        or_(
+            PaperRecord.model_version == version,
+            PaperRecord.doi.in_(annotated_in_round),
+        ),
+    )
 
 
 app = FastAPI(title="OpenAIRE 2026 — Research Paper Classifier API", version="0.1.0")
@@ -712,6 +739,7 @@ def get_model_card():
             if _model_path
             else "Unknown"
         ),
+        "hf_repo_id": _model_path or "",
         "model_type": getattr(config, "model_type", "echo"),
         "vocab_size": config.vocab_size,
         "hidden_size": config.hidden_size,
@@ -1130,10 +1158,13 @@ def list_papers(
     label: str = "",
     source: str = "",
     exclude_model: str = "",
+    version: str = "",
     db: Session = Depends(get_db),
 ):
-    # Exclude internal evaluation records (source='dataset') from the graph UI
-    base = db.query(PaperRecord).filter(PaperRecord.source != "dataset")
+    # Exclude internal evaluation records (source='dataset') from the graph UI,
+    # scoped to the requested round (default: the active MODEL_VERSION).
+    v = _resolve_version(version)
+    base = _version_scoped_papers(db, v)
 
     # Server-side filters
     if label:
@@ -1153,13 +1184,21 @@ def list_papers(
     sort_map = {
         "recent": PaperRecord.created_at.desc(),
         "votes": func.count(DBAnnotation.id).desc(),
-        "flagged": func.sum(case((DBAnnotation.is_flagged == True, 1), else_=0)).desc(),  # noqa: E712
+        "flagged": func.sum(
+            case((DBAnnotation.is_flagged == True, 1), else_=0)
+        ).desc(),  # noqa: E712
         "title": PaperRecord.title.asc(),
     }
     order = sort_map.get(sort_by, PaperRecord.created_at.desc())
 
     papers = (
-        base.outerjoin(DBAnnotation, PaperRecord.doi == DBAnnotation.paper_doi)
+        base.outerjoin(
+            DBAnnotation,
+            and_(
+                PaperRecord.doi == DBAnnotation.paper_doi,
+                DBAnnotation.model_version == v,
+            ),
+        )
         .group_by(PaperRecord.doi)
         .order_by(order)
         .offset(offset)
@@ -1168,14 +1207,15 @@ def list_papers(
     )
     results = []
     for p in papers:
-        votes = [a for a in p.annotations if a.proposed_label]
-        flags = [a for a in p.annotations if a.is_flagged == True]
-        consensus = get_consensus_label(p.annotations)
+        round_annotations = [a for a in p.annotations if a.model_version == v]
+        votes = [a for a in round_annotations if a.proposed_label]
+        flags = [a for a in round_annotations if a.is_flagged == True]  # noqa: E712
+        consensus = get_consensus_label(round_annotations)
         has_human = any(
-            a.annotator_type == "human" and a.proposed_label for a in p.annotations
+            a.annotator_type == "human" and a.proposed_label for a in round_annotations
         )
         has_llm = any(
-            a.annotator_type == "llm" and a.proposed_label for a in p.annotations
+            a.annotator_type == "llm" and a.proposed_label for a in round_annotations
         )
 
         results.append(
@@ -1191,20 +1231,23 @@ def list_papers(
                 "flag_count": len(flags),
                 "has_human": has_human,
                 "has_llm": has_llm,
+                "model_version": p.model_version,
             }
         )
     return {"papers": results, "total": total, "limit": limit, "offset": offset}
 
 
 @app.get("/api/annotations/papers/{doi:path}")
-def get_paper_details(doi: str, db: Session = Depends(get_db)):
+def get_paper_details(doi: str, version: str = "", db: Session = Depends(get_db)):
     clean_doi = sanitize_doi(doi)
     p = db.query(PaperRecord).filter(PaperRecord.doi == clean_doi).first()
     if not p:
         raise HTTPException(status_code=404, detail="Paper record not found")
 
+    v = _resolve_version(version)
+    round_annotations = [a for a in p.annotations if a.model_version == v]
     annotations_list = []
-    for a in p.annotations:
+    for a in round_annotations:
         if a.annotator_type == "llm":
             actor = {
                 "name": f"🤖 {a.llm_model or 'LLM Judge'}",
@@ -1235,20 +1278,25 @@ def get_paper_details(doi: str, db: Session = Depends(get_db)):
             }
         )
 
-    consensus = get_consensus_label(p.annotations)
+    consensus = get_consensus_label(round_annotations)
     return {
         "doi": p.doi,
         "title": p.title,
         "abstract": p.abstract,
         "initial_intent": p.initial_intent,
         "source": p.source,
+        "model_version": p.model_version,
         "consensus_label": consensus,
         "annotations": annotations_list,
     }
 
 
 @app.post("/api/annotations/papers")
-def import_paper(req: PaperImportRequest, _ = Depends(_require_hub_writable), db: Session = Depends(get_db)):
+def import_paper(
+    req: PaperImportRequest,
+    _=Depends(_require_hub_writable),
+    db: Session = Depends(get_db),
+):
     clean_doi = sanitize_doi(req.doi)
     if not clean_doi:
         raise HTTPException(
@@ -1263,6 +1311,7 @@ def import_paper(req: PaperImportRequest, _ = Depends(_require_hub_writable), db
             abstract=req.abstract,
             initial_intent=req.initial_intent,
             source=req.source,
+            model_version=MODEL_VERSION,
         )
         db.add(p)
         db.commit()
@@ -1271,7 +1320,12 @@ def import_paper(req: PaperImportRequest, _ = Depends(_require_hub_writable), db
 
 
 @app.post("/api/annotations/vote")
-def cast_vote(req: VoteRequest, _ = Depends(_require_hub_writable), request: Request = ..., db: Session = Depends(get_db)):
+def cast_vote(
+    req: VoteRequest,
+    _=Depends(_require_hub_writable),
+    request: Request = ...,
+    db: Session = Depends(get_db),
+):
     user_info = require_current_user(request)
     clean_doi = sanitize_doi(req.doi)
 
@@ -1296,6 +1350,7 @@ def cast_vote(req: VoteRequest, _ = Depends(_require_hub_writable), request: Req
     a.is_flagged = req.is_flagged
     a.flag_reason = req.flag_reason
     a.comment = req.comment
+    a.model_version = MODEL_VERSION
 
     db.commit()
     return {"message": "Vote registered successfully"}
@@ -1317,7 +1372,7 @@ class JudgeAnnotationRequest(BaseModel):
 @app.post("/api/annotations/judge")
 def judge_annotation(
     req: JudgeAnnotationRequest,
-    _ = Depends(_require_hub_writable),
+    _=Depends(_require_hub_writable),
     authorization: str = Header(default=""),
     db: Session = Depends(get_db),
 ):
@@ -1343,6 +1398,7 @@ def judge_annotation(
             abstract=req.abstract,
             initial_intent=req.initial_intent,
             source=req.source,
+            model_version=MODEL_VERSION,
         )
         db.add(p)
         db.flush()
@@ -1361,6 +1417,7 @@ def judge_annotation(
         existing.is_flagged = req.is_flagged
         existing.flag_reason = req.flag_reason
         existing.comment = req.comment
+        existing.model_version = MODEL_VERSION
     else:
         annotation = DBAnnotation(
             paper_doi=clean_doi,
@@ -1371,6 +1428,7 @@ def judge_annotation(
             is_flagged=req.is_flagged,
             flag_reason=req.flag_reason,
             comment=req.comment,
+            model_version=MODEL_VERSION,
         )
         db.add(annotation)
     db.commit()
@@ -1381,12 +1439,16 @@ def judge_annotation(
 
 _STATS_CACHE_TTL = 300  # 5 minutes
 
+
 def _get_redis():
     """Lazy Redis connection, reusing Celery REDIS_URL."""
     try:
-        from celery_app import REDIS_URL
         import redis
-        return redis.Redis.from_url(REDIS_URL, decode_responses=True, socket_connect_timeout=2)
+        from celery_app import REDIS_URL
+
+        return redis.Redis.from_url(
+            REDIS_URL, decode_responses=True, socket_connect_timeout=2
+        )
     except Exception:
         return None
 
@@ -1411,19 +1473,24 @@ def _cached(key: str, ttl: int, compute):
 
 
 @app.get("/api/annotations/stats")
-def get_stats(db: Session = Depends(get_db)):
+def get_stats(version: str = "", db: Session = Depends(get_db)):
     from sqlalchemy import func
 
+    v = _resolve_version(version)
+
     def _compute():
-        base = db.query(PaperRecord).filter(PaperRecord.source != "dataset")
+        base = _version_scoped_papers(db, v)
 
         total_papers = base.count()
         total_users = db.query(DBUser).count()
 
-        # Flagged: papers with > 3 flag annotations — single subquery
+        # Flagged: papers with > 3 flag annotations in this round — single subquery
         flag_sub = (
             db.query(DBAnnotation.paper_doi, func.count().label("flag_count"))
-            .filter(DBAnnotation.is_flagged == True)  # noqa: E712
+            .filter(
+                DBAnnotation.is_flagged == True,  # noqa: E712
+                DBAnnotation.model_version == v,
+            )
             .group_by(DBAnnotation.paper_doi)
             .having(func.count() > 3)
             .subquery()
@@ -1432,13 +1499,18 @@ def get_stats(db: Session = Depends(get_db)):
             PaperRecord.doi.in_(db.query(flag_sub.c.paper_doi))
         ).count()
 
-        # Consensus distribution — fetch (doi, label) pairs, compute mode per paper
+        # Consensus distribution — fetch (doi, label) pairs of this round,
+        # compute mode per paper
         rows = (
             db.query(DBAnnotation.paper_doi, DBAnnotation.proposed_label)
-            .filter(DBAnnotation.proposed_label.isnot(None))
+            .filter(
+                DBAnnotation.proposed_label.isnot(None),
+                DBAnnotation.model_version == v,
+            )
             .all()
         )
         from collections import defaultdict
+
         by_paper: dict[str, list[str]] = defaultdict(list)
         for doi, label in rows:
             by_paper[doi].append(label)
@@ -1450,11 +1522,29 @@ def get_stats(db: Session = Depends(get_db)):
             if len(top) == 1 or (len(top) == 2 and top[0][1] > top[1][1]):
                 dist[top[0][0]] += 1
 
-        # Papers without annotations — use initial_intent
+        # Papers without round annotations — use initial_intent
         unannotated = (
             db.query(PaperRecord.initial_intent, func.count())
-            .outerjoin(DBAnnotation, PaperRecord.doi == DBAnnotation.paper_doi)
-            .filter(PaperRecord.source != "dataset", DBAnnotation.id.is_(None), PaperRecord.initial_intent.isnot(None))
+            .outerjoin(
+                DBAnnotation,
+                and_(
+                    PaperRecord.doi == DBAnnotation.paper_doi,
+                    DBAnnotation.model_version == v,
+                ),
+            )
+            .filter(
+                PaperRecord.source != "dataset",
+                DBAnnotation.id.is_(None),
+                PaperRecord.initial_intent.isnot(None),
+                or_(
+                    PaperRecord.model_version == v,
+                    PaperRecord.doi.in_(
+                        db.query(DBAnnotation.paper_doi).filter(
+                            DBAnnotation.model_version == v
+                        )
+                    ),
+                ),
+            )
             .group_by(PaperRecord.initial_intent)
             .all()
         )
@@ -1462,11 +1552,40 @@ def get_stats(db: Session = Depends(get_db)):
             dist[label] += cnt
 
         human_annotations = (
-            db.query(DBAnnotation).filter(DBAnnotation.annotator_type == "human").count()
+            db.query(DBAnnotation)
+            .filter(
+                DBAnnotation.annotator_type == "human",
+                DBAnnotation.model_version == v,
+            )
+            .count()
         )
         llm_annotations = (
-            db.query(DBAnnotation).filter(DBAnnotation.annotator_type == "llm").count()
+            db.query(DBAnnotation)
+            .filter(
+                DBAnnotation.annotator_type == "llm",
+                DBAnnotation.model_version == v,
+            )
+            .count()
         )
+
+        # Known rounds: distinct model_version values seen in the DB,
+        # excluding the active one — these become archive links.
+        known: set[str] = set()
+        for (mv,) in (
+            db.query(PaperRecord.model_version)
+            .filter(PaperRecord.model_version.isnot(None))
+            .distinct()
+            .all()
+        ):
+            known.add(mv)
+        for (mv,) in (
+            db.query(DBAnnotation.model_version)
+            .filter(DBAnnotation.model_version.isnot(None))
+            .distinct()
+            .all()
+        ):
+            known.add(mv)
+        archive_versions = sorted(mv for mv in known if mv != MODEL_VERSION)
 
         return {
             "total_papers": total_papers,
@@ -1477,9 +1596,12 @@ def get_stats(db: Session = Depends(get_db)):
             "flagged_papers": flagged_count,
             "consensus_distribution": dist,
             "hub_read_only": HUB_READ_ONLY,
+            "model_version": MODEL_VERSION,
+            "labels": INTENT_CLASS_LABELS,
+            "archive_versions": archive_versions,
         }
 
-    return _cached("stats:annotations", _STATS_CACHE_TTL, _compute)
+    return _cached(f"stats:annotations:{v}", _STATS_CACHE_TTL, _compute)
 
 
 # Serve Static files if directory exists
@@ -1497,8 +1619,9 @@ if os.path.exists(STATIC_DIR):
 # MCP (Model Context Protocol) — agent-facing classification via SSE
 # =============================================================================
 
-from fastapi.responses import StreamingResponse
 import asyncio
+
+from fastapi.responses import StreamingResponse
 
 
 def _sse_event(event: str, data: dict | str) -> str:
@@ -1524,9 +1647,7 @@ async def mcp_classify(
     """
     token = authorization.removeprefix("Bearer ").strip()
     if token != API_KEY:
-        return JSONResponse(
-            {"error": "invalid api_key"}, status_code=401
-        )
+        return JSONResponse({"error": "invalid api_key"}, status_code=401)
 
     from tasks import classify_mcp as _task
 

@@ -117,29 +117,53 @@ def test_stats_with_data(temp_db, monkeypatch):
     monkeypatch.setattr("server._get_redis", lambda: None)
     import server as _srv
     from database import SessionLocal
-    from models import PaperRecord, Annotation as DBAnnotation
+    from models import Annotation as DBAnnotation
+    from models import PaperRecord
 
     db = SessionLocal()
     try:
         # Create papers
         p1 = PaperRecord(
-            doi="10.1234/stats.1", title="Paper 1", abstract="abs",
-            initial_intent="Methodology", source="arxiv",
+            doi="10.1234/stats.1",
+            title="Paper 1",
+            abstract="abs",
+            initial_intent="Methodology",
+            source="arxiv",
+            model_version=server.MODEL_VERSION,
         )
         p2 = PaperRecord(
-            doi="10.1234/stats.2", title="Paper 2", abstract="abs",
-            initial_intent="Review", source="arxiv",
+            doi="10.1234/stats.2",
+            title="Paper 2",
+            abstract="abs",
+            initial_intent="Review",
+            source="arxiv",
+            model_version=server.MODEL_VERSION,
         )
         db.add_all([p1, p2])
         db.flush()
 
         # Create annotations
-        a1 = DBAnnotation(paper_doi="10.1234/stats.1", proposed_label="Methodology",
-                          annotator_type="human", user_id="test-user")
-        a2 = DBAnnotation(paper_doi="10.1234/stats.2", proposed_label="Review",
-                          annotator_type="llm", llm_model="test-model")
-        a3 = DBAnnotation(paper_doi="10.1234/stats.1", proposed_label="Dataset",
-                          annotator_type="llm", llm_model="test-model-2")
+        a1 = DBAnnotation(
+            paper_doi="10.1234/stats.1",
+            proposed_label="Methodology",
+            annotator_type="human",
+            user_id="test-user",
+            model_version=server.MODEL_VERSION,
+        )
+        a2 = DBAnnotation(
+            paper_doi="10.1234/stats.2",
+            proposed_label="Review",
+            annotator_type="llm",
+            llm_model="test-model",
+            model_version=server.MODEL_VERSION,
+        )
+        a3 = DBAnnotation(
+            paper_doi="10.1234/stats.1",
+            proposed_label="Dataset",
+            annotator_type="llm",
+            llm_model="test-model-2",
+            model_version=server.MODEL_VERSION,
+        )
         db.add_all([a1, a2, a3])
         db.commit()
 
@@ -159,17 +183,31 @@ def test_stats_flagged(temp_db, monkeypatch):
     monkeypatch.setattr("server._get_redis", lambda: None)
     import server as _srv
     from database import SessionLocal
-    from models import PaperRecord, Annotation as DBAnnotation
+    from models import Annotation as DBAnnotation
+    from models import PaperRecord
 
     db = SessionLocal()
     try:
-        p = PaperRecord(doi="10.1234/stats.flagged", title="F", abstract="x",
-                        initial_intent="Methodology", source="arxiv")
+        p = PaperRecord(
+            doi="10.1234/stats.flagged",
+            title="F",
+            abstract="x",
+            initial_intent="Methodology",
+            source="arxiv",
+            model_version=server.MODEL_VERSION,
+        )
         db.add(p)
         db.flush()
         for i in range(4):
-            db.add(DBAnnotation(paper_doi="10.1234/stats.flagged", is_flagged=True,
-                                annotator_type="llm", llm_model=f"test-model-{i}"))
+            db.add(
+                DBAnnotation(
+                    paper_doi="10.1234/stats.flagged",
+                    is_flagged=True,
+                    annotator_type="llm",
+                    llm_model=f"test-model-{i}",
+                    model_version=server.MODEL_VERSION,
+                )
+            )
         db.commit()
 
         result = _srv.get_stats(db=db)
@@ -183,39 +221,80 @@ def test_stats_consensus(temp_db, monkeypatch):
     monkeypatch.setattr("server._get_redis", lambda: None)
     import server as _srv
     from database import SessionLocal
-    from models import PaperRecord, Annotation as DBAnnotation
+    from models import Annotation as DBAnnotation
+    from models import PaperRecord
 
     db = SessionLocal()
     try:
         # Paper 1: two Methodology votes → Methodology
-        p1 = PaperRecord(doi="10.1234/stats.c1", title="C1", abstract="x",
-                         initial_intent="Dataset", source="arxiv")
+        p1 = PaperRecord(
+            doi="10.1234/stats.c1",
+            title="C1",
+            abstract="x",
+            initial_intent="Dataset",
+            source="arxiv",
+            model_version=server.MODEL_VERSION,
+        )
         # Paper 2: no annotations → initial_intent
-        p2 = PaperRecord(doi="10.1234/stats.c2", title="C2", abstract="x",
-                         initial_intent="Review", source="arxiv")
+        p2 = PaperRecord(
+            doi="10.1234/stats.c2",
+            title="C2",
+            abstract="x",
+            initial_intent="Review",
+            source="arxiv",
+            model_version=server.MODEL_VERSION,
+        )
         # Paper 3: tie (Methodology + Dataset) → excluded
-        p3 = PaperRecord(doi="10.1234/stats.c3", title="C3", abstract="x",
-                         initial_intent="Applied", source="arxiv")
+        p3 = PaperRecord(
+            doi="10.1234/stats.c3",
+            title="C3",
+            abstract="x",
+            initial_intent="Applied",
+            source="arxiv",
+            model_version=server.MODEL_VERSION,
+        )
         db.add_all([p1, p2, p3])
         db.flush()
 
-        db.add_all([
-            DBAnnotation(paper_doi="10.1234/stats.c1", proposed_label="Methodology",
-                         annotator_type="human", user_id="u1"),
-            DBAnnotation(paper_doi="10.1234/stats.c1", proposed_label="Methodology",
-                         annotator_type="llm", llm_model="m"),
-            DBAnnotation(paper_doi="10.1234/stats.c3", proposed_label="Methodology",
-                         annotator_type="human", user_id="u2"),
-            DBAnnotation(paper_doi="10.1234/stats.c3", proposed_label="Dataset",
-                         annotator_type="llm", llm_model="m"),
-        ])
+        db.add_all(
+            [
+                DBAnnotation(
+                    paper_doi="10.1234/stats.c1",
+                    proposed_label="Methodology",
+                    annotator_type="human",
+                    user_id="u1",
+                    model_version=server.MODEL_VERSION,
+                ),
+                DBAnnotation(
+                    paper_doi="10.1234/stats.c1",
+                    proposed_label="Methodology",
+                    annotator_type="llm",
+                    llm_model="m",
+                    model_version=server.MODEL_VERSION,
+                ),
+                DBAnnotation(
+                    paper_doi="10.1234/stats.c3",
+                    proposed_label="Methodology",
+                    annotator_type="human",
+                    user_id="u2",
+                    model_version=server.MODEL_VERSION,
+                ),
+                DBAnnotation(
+                    paper_doi="10.1234/stats.c3",
+                    proposed_label="Dataset",
+                    annotator_type="llm",
+                    llm_model="m",
+                    model_version=server.MODEL_VERSION,
+                ),
+            ]
+        )
         db.commit()
 
         result = _srv.get_stats(db=db)
         dist = result["consensus_distribution"]
         assert dist.get("Methodology") == 1  # paper 1
-        assert dist.get("Review") == 1       # paper 2 (initial_intent)
-        assert "Applied" not in dist         # paper 3: tie, excluded
+        assert dist.get("Review") == 1  # paper 2 (initial_intent)
+        assert "Applied" not in dist  # paper 3: tie, excluded
     finally:
         db.close()
 
@@ -246,8 +325,12 @@ def test_judge_rejects_no_auth(client):
     """POST /api/annotations/judge requires Bearer token."""
     response = client.post(
         "/api/annotations/judge",
-        json={"doi": "10.1234/test", "title": "T", "abstract": "A",
-              "llm_model": "test-model"},
+        json={
+            "doi": "10.1234/test",
+            "title": "T",
+            "abstract": "A",
+            "llm_model": "test-model",
+        },
     )
     assert response.status_code == 401
 
@@ -257,8 +340,12 @@ def test_judge_rejects_wrong_auth(client, monkeypatch):
     monkeypatch.setattr("server.API_KEY", "correct-key")
     response = client.post(
         "/api/annotations/judge",
-        json={"doi": "10.1234/test", "title": "T", "abstract": "A",
-              "llm_model": "test-model"},
+        json={
+            "doi": "10.1234/test",
+            "title": "T",
+            "abstract": "A",
+            "llm_model": "test-model",
+        },
         headers={"Authorization": "Bearer wrong-key"},
     )
     assert response.status_code == 401
@@ -268,17 +355,21 @@ def test_judge_creates_paper_and_annotation(temp_db, monkeypatch):
     """Judge endpoint creates PaperRecord + Annotation in one call."""
     monkeypatch.setattr("server.API_KEY", "test-key")
     monkeypatch.setattr("server._get_redis", lambda: None)
-    from fastapi.testclient import TestClient
     import server as _srv
+    from fastapi.testclient import TestClient
 
     client = TestClient(_srv.app)
     response = client.post(
         "/api/annotations/judge",
         json={
-            "doi": "10.1234/judge-test", "title": "Judge Test",
-            "abstract": "A novel approach to testing.", "llm_model": "test-model",
-            "initial_intent": "Applied", "proposed_label": "Methodology",
-            "is_flagged": True, "flag_reason": "garbled text",
+            "doi": "10.1234/judge-test",
+            "title": "Judge Test",
+            "abstract": "A novel approach to testing.",
+            "llm_model": "test-model",
+            "initial_intent": "Applied",
+            "proposed_label": "Methodology",
+            "is_flagged": True,
+            "flag_reason": "garbled text",
             "comment": "[HIGH confidence] Looks good.",
         },
         headers={"Authorization": "Bearer test-key"},
@@ -288,21 +379,34 @@ def test_judge_creates_paper_and_annotation(temp_db, monkeypatch):
 
     # Verify in DB
     from database import SessionLocal
-    from models import PaperRecord, Annotation as DBAnnotation
+    from models import Annotation as DBAnnotation
+    from models import PaperRecord
+
     db = SessionLocal()
     try:
-        p = db.query(PaperRecord).filter(PaperRecord.doi == "10.1234/judge-test").first()
+        p = (
+            db.query(PaperRecord)
+            .filter(PaperRecord.doi == "10.1234/judge-test")
+            .first()
+        )
         assert p is not None
         assert p.initial_intent == "Applied"
 
-        a = db.query(DBAnnotation).filter(
-            DBAnnotation.paper_doi == "10.1234/judge-test",
-            DBAnnotation.llm_model == "test-model",
-        ).first()
+        a = (
+            db.query(DBAnnotation)
+            .filter(
+                DBAnnotation.paper_doi == "10.1234/judge-test",
+                DBAnnotation.llm_model == "test-model",
+            )
+            .first()
+        )
         assert a is not None
         assert a.proposed_label == "Methodology"
         assert a.is_flagged is True
         assert a.flag_reason == "garbled text"
+        # Version stamp: judge annotations belong to the active round
+        assert p.model_version == server.MODEL_VERSION
+        assert a.model_version == server.MODEL_VERSION
     finally:
         db.close()
 
@@ -311,12 +415,14 @@ def test_judge_upserts_existing(temp_db, monkeypatch):
     """Second POST with same doi+model overwrites, doesn't duplicate."""
     monkeypatch.setattr("server.API_KEY", "test-key")
     monkeypatch.setattr("server._get_redis", lambda: None)
-    from fastapi.testclient import TestClient
     import server as _srv
+    from fastapi.testclient import TestClient
 
     client = TestClient(_srv.app)
     payload = {
-        "doi": "10.1234/judge-upsert", "title": "T", "abstract": "A",
+        "doi": "10.1234/judge-upsert",
+        "title": "T",
+        "abstract": "A",
         "llm_model": "test-model",
     }
     headers = {"Authorization": "Bearer test-key"}
@@ -324,20 +430,31 @@ def test_judge_upserts_existing(temp_db, monkeypatch):
     r1 = client.post("/api/annotations/judge", json=payload, headers=headers)
     assert r1.status_code == 200
 
-    r2 = client.post("/api/annotations/judge", json={
-        **payload, "proposed_label": "Review", "comment": "updated",
-    }, headers=headers)
+    r2 = client.post(
+        "/api/annotations/judge",
+        json={
+            **payload,
+            "proposed_label": "Review",
+            "comment": "updated",
+        },
+        headers=headers,
+    )
     assert r2.status_code == 200
     assert r2.json()["status"] == "saved"
 
     from database import SessionLocal
     from models import Annotation as DBAnnotation
+
     db = SessionLocal()
     try:
-        annotations = db.query(DBAnnotation).filter(
-            DBAnnotation.paper_doi == "10.1234/judge-upsert",
-            DBAnnotation.llm_model == "test-model",
-        ).all()
+        annotations = (
+            db.query(DBAnnotation)
+            .filter(
+                DBAnnotation.paper_doi == "10.1234/judge-upsert",
+                DBAnnotation.llm_model == "test-model",
+            )
+            .all()
+        )
         assert len(annotations) == 1
         assert annotations[0].proposed_label == "Review"
         assert annotations[0].comment == "updated"
@@ -350,29 +467,330 @@ def test_hub_read_only_blocks_writes(temp_db, monkeypatch):
     monkeypatch.setattr("server.HUB_READ_ONLY", True)
     monkeypatch.setattr("server.API_KEY", "test-key")
     monkeypatch.setattr("server._get_redis", lambda: None)
-    from fastapi.testclient import TestClient
     import server as _srv
+    from fastapi.testclient import TestClient
 
     client = TestClient(_srv.app)
 
     # Paper import blocked
-    r = client.post("/api/annotations/papers", json={
-        "doi": "10.1234/ro-test", "title": "T", "abstract": "A", "initial_intent": "Applied",
-    })
+    r = client.post(
+        "/api/annotations/papers",
+        json={
+            "doi": "10.1234/ro-test",
+            "title": "T",
+            "abstract": "A",
+            "initial_intent": "Applied",
+        },
+    )
     assert r.status_code == 503
 
     # Vote blocked
-    r = client.post("/api/annotations/vote", json={
-        "doi": "10.1234/ro-test", "proposed_label": "Applied",
-    })
+    r = client.post(
+        "/api/annotations/vote",
+        json={
+            "doi": "10.1234/ro-test",
+            "proposed_label": "Applied",
+        },
+    )
     assert r.status_code == 503
 
     # Judge blocked
-    r = client.post("/api/annotations/judge", json={
-        "doi": "10.1234/ro-test", "title": "T", "abstract": "A", "llm_model": "m",
-    }, headers={"Authorization": "Bearer test-key"})
+    r = client.post(
+        "/api/annotations/judge",
+        json={
+            "doi": "10.1234/ro-test",
+            "title": "T",
+            "abstract": "A",
+            "llm_model": "m",
+        },
+        headers={"Authorization": "Bearer test-key"},
+    )
     assert r.status_code == 503
 
     # Login (GET) should still work — not a mutation
     r = client.get("/api/auth/login")
     assert r.status_code == 200  # redirect to HF OAuth
+
+
+# ── Versioned rounds tests ────────────────────────────────────────────────────
+
+
+def test_import_sets_model_version(temp_db, monkeypatch):
+    """Papers imported through the hub are stamped with the active round."""
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    import server as _srv
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_srv.app)
+    r = client.post(
+        "/api/annotations/papers",
+        json={
+            "doi": "10.1234/import-ver",
+            "title": "T",
+            "abstract": "A novel method.",
+            "initial_intent": "Applied",
+            "source": "arxiv",
+        },
+    )
+    assert r.status_code == 200
+
+    from database import SessionLocal
+    from models import PaperRecord
+
+    db = SessionLocal()
+    try:
+        p = (
+            db.query(PaperRecord)
+            .filter(PaperRecord.doi == "10.1234/import-ver")
+            .first()
+        )
+        assert p is not None
+        assert p.model_version == server.MODEL_VERSION
+    finally:
+        db.close()
+
+
+def test_vote_sets_model_version(temp_db, monkeypatch):
+    """Human votes are stamped with the active round."""
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    import server as _srv
+    from auth_utils import create_session_token
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_srv.app)
+    r = client.post(
+        "/api/annotations/papers",
+        json={
+            "doi": "10.1234/vote-ver",
+            "title": "T",
+            "abstract": "A novel approach.",
+            "initial_intent": "Methodology",
+            "source": "arxiv",
+        },
+    )
+    assert r.status_code == 200
+
+    token = create_session_token("voter", "Voter")
+    r = client.post(
+        "/api/annotations/vote",
+        json={"doi": "10.1234/vote-ver", "proposed_label": "Review"},
+        cookies={"session_token": token},
+    )
+    assert r.status_code == 200
+
+    from database import SessionLocal
+    from models import Annotation as DBAnnotation
+
+    db = SessionLocal()
+    try:
+        a = (
+            db.query(DBAnnotation)
+            .filter(
+                DBAnnotation.paper_doi == "10.1234/vote-ver",
+                DBAnnotation.user_id == "voter",
+            )
+            .first()
+        )
+        assert a is not None
+        assert a.model_version == server.MODEL_VERSION
+    finally:
+        db.close()
+
+
+def test_list_papers_version_filter(temp_db, monkeypatch):
+    """Paper list is scoped to the round; default view = active version."""
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    import server as _srv
+    from database import SessionLocal
+    from fastapi.testclient import TestClient
+    from models import Annotation as DBAnnotation
+    from models import PaperRecord
+
+    db = SessionLocal()
+    try:
+        p_old = PaperRecord(
+            doi="10.1234/ver.legacy",
+            title="Legacy",
+            abstract="abs",
+            initial_intent="Methodology",
+            source="arxiv",
+            model_version="v0.1.3",
+        )
+        p_new = PaperRecord(
+            doi="10.1234/ver.active",
+            title="Active",
+            abstract="abs",
+            initial_intent="Review",
+            source="arxiv",
+            model_version=server.MODEL_VERSION,
+        )
+        db.add_all([p_old, p_new])
+        db.flush()
+        db.add(
+            DBAnnotation(
+                paper_doi=p_old.doi,
+                proposed_label="Applied",
+                annotator_type="human",
+                user_id="u1",
+                model_version="v0.1.3",
+            )
+        )
+        db.add(
+            DBAnnotation(
+                paper_doi=p_new.doi,
+                proposed_label="Dataset",
+                annotator_type="human",
+                user_id="u2",
+                model_version=server.MODEL_VERSION,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    client = TestClient(_srv.app)
+
+    # Default: active round only
+    r = client.get("/api/annotations/papers")
+    data = r.json()
+    assert data["total"] == 1
+    assert data["papers"][0]["doi"] == "10.1234/ver.active"
+    assert data["papers"][0]["consensus_label"] == "Dataset"
+    assert data["papers"][0]["vote_count"] == 1
+
+    # Explicit legacy round
+    r = client.get("/api/annotations/papers", params={"version": "v0.1.3"})
+    data = r.json()
+    assert data["total"] == 1
+    assert data["papers"][0]["doi"] == "10.1234/ver.legacy"
+    assert data["papers"][0]["consensus_label"] == "Applied"
+    assert data["papers"][0]["vote_count"] == 1
+
+
+def test_get_paper_details_version_filter(temp_db, monkeypatch):
+    """Details show only the requested round's annotations + consensus."""
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    import server as _srv
+    from database import SessionLocal
+    from fastapi.testclient import TestClient
+    from models import Annotation as DBAnnotation
+    from models import PaperRecord
+
+    db = SessionLocal()
+    try:
+        p = PaperRecord(
+            doi="10.1234/ver.detail",
+            title="D",
+            abstract="abs",
+            initial_intent="Methodology",
+            source="arxiv",
+            model_version="v0.1.3",
+        )
+        db.add(p)
+        db.flush()
+        db.add(
+            DBAnnotation(
+                paper_doi=p.doi,
+                proposed_label="Applied",
+                annotator_type="human",
+                user_id="u1",
+                model_version="v0.1.3",
+            )
+        )
+        db.add(
+            DBAnnotation(
+                paper_doi=p.doi,
+                proposed_label="Review",
+                annotator_type="human",
+                user_id="u2",
+                model_version=server.MODEL_VERSION,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    client = TestClient(_srv.app)
+
+    # Default (active round): only the active annotation
+    r = client.get("/api/annotations/papers/10.1234/ver.detail")
+    data = r.json()
+    assert len(data["annotations"]) == 1
+    assert data["annotations"][0]["proposed_label"] == "Review"
+    assert data["consensus_label"] == "Review"
+
+    # Legacy round: only the legacy annotation
+    r = client.get(
+        "/api/annotations/papers/10.1234/ver.detail",
+        params={"version": "v0.1.3"},
+    )
+    data = r.json()
+    assert len(data["annotations"]) == 1
+    assert data["annotations"][0]["proposed_label"] == "Applied"
+    assert data["consensus_label"] == "Applied"
+
+
+def test_stats_version_filter(temp_db, monkeypatch):
+    """Stats are scoped to the round; archive_versions and labels exposed."""
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    import server as _srv
+    from database import SessionLocal
+    from models import Annotation as DBAnnotation
+    from models import PaperRecord
+
+    db = SessionLocal()
+    try:
+        p_old = PaperRecord(
+            doi="10.1234/vstats.legacy",
+            title="L",
+            abstract="x",
+            initial_intent="Methodology",
+            source="arxiv",
+            model_version="v0.1.3",
+        )
+        p_new = PaperRecord(
+            doi="10.1234/vstats.active",
+            title="A",
+            abstract="x",
+            initial_intent="Review",
+            source="arxiv",
+            model_version=server.MODEL_VERSION,
+        )
+        db.add_all([p_old, p_new])
+        db.flush()
+        db.add(
+            DBAnnotation(
+                paper_doi=p_old.doi,
+                proposed_label="Applied",
+                annotator_type="human",
+                user_id="u1",
+                model_version="v0.1.3",
+            )
+        )
+        db.add(
+            DBAnnotation(
+                paper_doi=p_new.doi,
+                proposed_label="Dataset",
+                annotator_type="human",
+                user_id="u2",
+                model_version=server.MODEL_VERSION,
+            )
+        )
+        db.commit()
+
+        active = _srv.get_stats(db=db)
+        assert active["total_papers"] == 1
+        assert active["human_annotations"] == 1
+        assert active["model_version"] == server.MODEL_VERSION
+        assert "v0.1.3" in active["archive_versions"]
+        assert server.MODEL_VERSION not in active["archive_versions"]
+        assert len(active["labels"]) == 6
+        assert "Unclassifiable" in active["labels"]
+
+        legacy = _srv.get_stats(db=db, version="v0.1.3")
+        assert legacy["total_papers"] == 1
+        assert legacy["human_annotations"] == 1
+        # archive_versions is relative to the ACTIVE round, not the queried one
+        assert legacy["archive_versions"] == active["archive_versions"]
+    finally:
+        db.close()

@@ -48,6 +48,9 @@ class PaperRecord(Base):
     abstract = Column(String, nullable=False)
     initial_intent = Column(String, nullable=True)  # Label predicted by local model
     source = Column(String, default="arxiv")  # 'arxiv', 'openaire', 'custom'
+    # Version of the model whose round this paper was imported in
+    # (e.g. "v0.1.3" for legacy rows, "v0.1.4" for the current round).
+    model_version = Column(String, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     annotations = relationship(
@@ -91,6 +94,9 @@ class Annotation(Base):
     is_flagged = Column(Boolean, default=False)  # noisy text, formatting issue, etc.
     flag_reason = Column(String, nullable=True)  # "Garbled text", "Language mismatch" …
     comment = Column(String, nullable=True)  # LLM rationale or human critique
+    # Version of the model whose round this annotation was cast in
+    # (e.g. "v0.1.3" for legacy rows, "v0.1.4" for the current round).
+    model_version = Column(String, nullable=True, index=True)
 
     updated_at = Column(
         DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow

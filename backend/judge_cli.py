@@ -30,11 +30,15 @@ import xml.etree.ElementTree as ET  # noqa: E402
 from pathlib import Path
 
 import requests  # noqa: E402
-from config import API_KEY, JUDGE_API_URL, LLM_JUDGE_DEFAULT_MODEL  # noqa: E402
+from config import (
+    API_KEY,
+    JUDGE_API_URL,  # noqa: E402
+    LLM_JUDGE_DEFAULT_MODEL,
+    MODEL_VERSION,
+)
 from database import SessionLocal  # noqa: E402
 from intent_classifier import classify_paper  # noqa: E402
 from llm_judge import JudgeVerdict, judge_paper  # noqa: E402
-
 from models import Annotation as DBAnnotation  # noqa: E402
 from models import PaperRecord
 
@@ -67,9 +71,11 @@ OPENAIRE_API = "https://api.openaire.eu/search/publications"
 # Research keywords used to pull diverse papers from external sources.
 # Loaded from assets/topics.txt at runtime (container path: /app/assets/topics.txt).
 
+
 def _load_search_queries() -> list[str]:
     """Load search queries from the topics file, falling back to an empty list."""
     import os
+
     candidates = [
         os.path.join(os.path.dirname(__file__), "..", "assets", "topics.txt"),
         "/app/assets/topics.txt",
@@ -77,12 +83,17 @@ def _load_search_queries() -> list[str]:
     for path in candidates:
         try:
             with open(path) as f:
-                queries = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+                queries = [
+                    line.strip()
+                    for line in f
+                    if line.strip() and not line.startswith("#")
+                ]
                 if queries:
                     return queries
         except FileNotFoundError:
             pass
     return []
+
 
 SEARCH_QUERIES = _load_search_queries()
 
@@ -147,7 +158,9 @@ def fetch_arxiv(query: str, max_results: int = 25) -> list[dict]:
     return papers
 
 
-def fetch_openaire(query: str, max_results: int = 25, *, sort_fresh: bool = False, page: int = 1) -> list[dict]:
+def fetch_openaire(
+    query: str, max_results: int = 25, *, sort_fresh: bool = False, page: int = 1
+) -> list[dict]:
     """Fetch papers from OpenAIRE API."""
     import re
 
@@ -298,6 +311,7 @@ def process_paper(
                 abstract=abstract,
                 initial_intent=initial_intent,
                 source=paper.get("source", "arxiv"),
+                model_version=MODEL_VERSION,
             )
             if not dry_run:
                 db.add(p)
@@ -343,7 +357,9 @@ def process_paper(
 
     # ── 4. Persist annotation ─────────────────────────────────────────────────
     if is_remote:
-        status = post_annotation_remote(paper, verdict, model, remote_url, remote_api_key)
+        status = post_annotation_remote(
+            paper, verdict, model, remote_url, remote_api_key
+        )
         if status == "saved":
             return True
         if status == "skipped":
@@ -359,6 +375,7 @@ def process_paper(
         is_flagged=verdict.is_flagged,
         flag_reason=verdict.flag_reason,
         comment=f"[{verdict.confidence.upper()} confidence] {verdict.rationale}",
+        model_version=MODEL_VERSION,
     )
     db.add(annotation)
     db.commit()
@@ -429,6 +446,7 @@ def fetch_remote_catalog(
             "limit": page_size,
             "offset": offset,
             "sort_by": "recent",
+            "version": MODEL_VERSION,  # judge papers of the active round only
         }
         if not force:
             params["exclude_model"] = model
@@ -464,7 +482,9 @@ def fetch_remote_catalog(
         if len(page) < page_size or offset >= total:
             break
 
-    log.info(f"Remote catalog: {len(papers)} papers fetched (excluding already judged by {model})")
+    log.info(
+        f"Remote catalog: {len(papers)} papers fetched (excluding already judged by {model})"
+    )
     return papers
 
 
@@ -546,12 +566,16 @@ def run(args: argparse.Namespace) -> None:
                     remote_api_key=remote_key if is_remote else "",
                 )
                 dispatched += 1
-                log.info(f"  📤 Enqueued {dispatched}/{min(args.n, len(papers))}: {paper['doi'][:60]}")
+                log.info(
+                    f"  📤 Enqueued {dispatched}/{min(args.n, len(papers))}: {paper['doi'][:60]}"
+                )
                 time.sleep(args.delay)
         elif args.source == "catalog":
             if is_remote:
                 # Remote catalog: fetch papers from the remote API
-                papers = fetch_remote_catalog(remote_url, remote_key, model, args.n, force=force)
+                papers = fetch_remote_catalog(
+                    remote_url, remote_key, model, args.n, force=force
+                )
                 target = args.n if args.n > 0 else len(papers)
                 for paper in papers:
                     if dispatched >= target:
@@ -567,7 +591,9 @@ def run(args: argparse.Namespace) -> None:
                         remote_api_key=remote_key,
                     )
                     dispatched += 1
-                    log.info(f"  📤 Enqueued {dispatched}/{target}: {paper['doi'][:60]}")
+                    log.info(
+                        f"  📤 Enqueued {dispatched}/{target}: {paper['doi'][:60]}"
+                    )
                     time.sleep(args.delay)
             else:
                 db = SessionLocal()
@@ -620,9 +646,16 @@ def run(args: argparse.Namespace) -> None:
                         break
                     log.info(f"\n🔍 Query: '{query}'  (page {page})")
                     if args.source == "openaire":
-                        papers = fetcher(query, max_results=min(25, args.n - dispatched + 5), sort_fresh=sort_fresh, page=page)
+                        papers = fetcher(
+                            query,
+                            max_results=min(25, args.n - dispatched + 5),
+                            sort_fresh=sort_fresh,
+                            page=page,
+                        )
                     else:
-                        papers = fetcher(query, max_results=min(25, args.n - dispatched + 5))
+                        papers = fetcher(
+                            query, max_results=min(25, args.n - dispatched + 5)
+                        )
                     if not papers:
                         break
                     random.shuffle(papers)
@@ -639,7 +672,9 @@ def run(args: argparse.Namespace) -> None:
                             remote_api_key=remote_key if is_remote else "",
                         )
                         dispatched += 1
-                        log.info(f"  📤 Enqueued {dispatched}/{args.n}: {paper['doi'][:60]}")
+                        log.info(
+                            f"  📤 Enqueued {dispatched}/{args.n}: {paper['doi'][:60]}"
+                        )
                         time.sleep(args.delay)
                 log.info(f"  ✓ Query '{query[:40]}' complete")
         log.info(f"\n🏁 Done — {dispatched} tasks dispatched to Celery worker")
@@ -663,8 +698,12 @@ def run(args: argparse.Namespace) -> None:
                 if judged >= args.n:
                     break
                 ok = process_paper(
-                    paper, model, args.dry_run, db,
-                    remote_url=remote_url, remote_api_key=remote_key,
+                    paper,
+                    model,
+                    args.dry_run,
+                    db,
+                    remote_url=remote_url,
+                    remote_api_key=remote_key,
                     force=force,
                 )
                 if ok:
@@ -674,14 +713,20 @@ def run(args: argparse.Namespace) -> None:
         elif args.source == "catalog":
             # ── Catalog mode ────────────────────────────────────────────────
             if is_remote:
-                papers = fetch_remote_catalog(remote_url, remote_key, model, args.n, force=force)
+                papers = fetch_remote_catalog(
+                    remote_url, remote_key, model, args.n, force=force
+                )
                 target = args.n if args.n > 0 else len(papers)
                 for paper in papers:
                     if judged >= target:
                         break
                     ok = process_paper(
-                        paper, model, args.dry_run, None,
-                        remote_url=remote_url, remote_api_key=remote_key,
+                        paper,
+                        model,
+                        args.dry_run,
+                        None,
+                        remote_url=remote_url,
+                        remote_api_key=remote_key,
                         force=force,
                     )
                     if ok:
@@ -720,8 +765,12 @@ def run(args: argparse.Namespace) -> None:
                         "source": p.source or "catalog",
                     }
                     ok = process_paper(
-                        paper, model, args.dry_run, db,
-                        remote_url=remote_url, remote_api_key=remote_key,
+                        paper,
+                        model,
+                        args.dry_run,
+                        db,
+                        remote_url=remote_url,
+                        remote_api_key=remote_key,
                         force=force,
                     )
                     if ok:
@@ -741,9 +790,16 @@ def run(args: argparse.Namespace) -> None:
                         break
                     log.info(f"\n🔍 Query: '{query}'  (page {page})")
                     if args.source == "openaire":
-                        papers = fetcher(query, max_results=min(25, args.n - judged + 5), sort_fresh=sort_fresh, page=page)
+                        papers = fetcher(
+                            query,
+                            max_results=min(25, args.n - judged + 5),
+                            sort_fresh=sort_fresh,
+                            page=page,
+                        )
                     else:
-                        papers = fetcher(query, max_results=min(25, args.n - judged + 5))
+                        papers = fetcher(
+                            query, max_results=min(25, args.n - judged + 5)
+                        )
                     if not papers:
                         break
                     random.shuffle(papers)
@@ -752,8 +808,12 @@ def run(args: argparse.Namespace) -> None:
                         if judged >= args.n:
                             break
                         ok = process_paper(
-                            paper, model, args.dry_run, db,
-                            remote_url=remote_url, remote_api_key=remote_key,
+                            paper,
+                            model,
+                            args.dry_run,
+                            db,
+                            remote_url=remote_url,
+                            remote_api_key=remote_key,
                             force=force,
                         )
                         if ok:

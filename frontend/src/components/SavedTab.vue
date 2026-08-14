@@ -232,6 +232,10 @@ export default {
   background-color: rgba(236, 72, 153, 0.15);
   color: #f472b6;
 }
+.badge.unclassifiable {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+}
 
 .item-title {
   color: var(--text-primary);

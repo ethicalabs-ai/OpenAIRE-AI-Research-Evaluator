@@ -7,7 +7,7 @@ The app streams scientific paper metadata from the [OpenAIRE Graph API](https://
 ## Features
 
 - **OpenAIRE Stream** — live publication metadata via the OpenAIRE Graph API
-- **Collab Hub** — community annotations with LLM judge consensus
+- **Collab Hub** — community annotations with LLM judge consensus; versioned rounds with read-only archives (e.g. [v0.1.3 archive](https://openaire-2026.ethicalabs.ai/collab/archive/v0.1.3/))
 - **Free Text** — ad-hoc classification of custom titles and abstracts
 - **Saved History** — local browser storage with optional server-side sync
 - **Model Card** — architecture specs, parameter census, and consumption code
@@ -18,4 +18,4 @@ This project is the artifact submission for the OpenAIRE AI Hackathon 2026.
 
 The accompanying [story](./story.md) explains the question, journey, insight, and what others can reuse.
 
-[Source](https://github.com/ethicalabs-ai/OpenAIRE-AI-Research-Evaluator) · [OpenAIRE Graph](https://graph.openaire.eu) · [Echo-DSRN Model](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF)
+[Source](https://github.com/ethicalabs-ai/OpenAIRE-AI-Research-Evaluator) · [OpenAIRE Graph](https://graph.openaire.eu) · [Echo-DSRN Model](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF)

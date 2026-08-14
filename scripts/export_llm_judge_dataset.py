@@ -104,33 +104,40 @@ def _parse_comment(comment: str | None) -> tuple[str, str]:
         end = comment.find(" confidence]")
         if end != -1:
             conf = comment[1:end].lower()
-            rationale = comment[end + len(" confidence]"):].strip()
+            rationale = comment[end + len(" confidence]") :].strip()
             return conf, rationale
     return "unknown", comment
 
 
-def _build_messages(title: str, abstract: str, label: str, rationale: str) -> list[dict]:
+def _build_messages(
+    title: str, abstract: str, label: str, rationale: str
+) -> list[dict]:
     """Build ChatML messages with inline reasoning in the assistant content."""
     assistant_content = f"{rationale}\n\n{label}" if rationale else label
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": USER_TEMPLATE.format(title=title, abstract=abstract)},
+        {
+            "role": "user",
+            "content": USER_TEMPLATE.format(title=title, abstract=abstract),
+        },
         {"role": "assistant", "content": assistant_content},
     ]
 
 
-def _query_human_annotations(Session, excluded: set) -> list:
+def _query_human_annotations(Session, excluded: set, version: str = "") -> list:
     """Query human annotations from the database, excluding papers judged
-    only by excluded models."""
+    only by excluded models. When ``version`` is given, only annotations of
+    that model round are returned."""
     db = Session()
     try:
-        return (
+        q = (
             db.query(Annotation, PaperRecord)
             .join(PaperRecord, Annotation.paper_doi == PaperRecord.doi)
             .filter(Annotation.annotator_type == "human")
-            .order_by(PaperRecord.doi)
-            .all()
         )
+        if version:
+            q = q.filter(Annotation.model_version == version)
+        return q.order_by(PaperRecord.doi).all()
     finally:
         db.close()
 
@@ -149,17 +156,29 @@ def _normalize_model(name: str | None) -> str:
 # ── Export ────────────────────────────────────────────────────────────────────
 
 
-def export(output_dir: Path, db_url: str | None = None) -> None:
-    """Query annotations, write per-model JSONL files, print summary."""
+def export(output_dir: Path, db_url: str | None = None, version: str = "") -> None:
+    """Query annotations, write per-model JSONL files, print summary.
+
+    When ``version`` is set (e.g. "v0.1.4"), only annotations collected
+    during that model round are exported; otherwise all rounds are merged.
+    """
     if db_url:
         import os as _os
+
         _os.environ["DATABASE_URL"] = db_url
         import importlib
+
         import database as _db
+
         importlib.reload(_db)
         Session = _db.SessionLocal
     else:
         Session = SessionLocal
+
+    if version:
+        log.info(f"Exporting round: {version}")
+    else:
+        log.info("Exporting all rounds (no --version filter)")
 
     excluded = set(EXCLUDED_JUDGE_MODELS)
     if excluded:
@@ -167,14 +186,15 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
 
     db = Session()
     try:
-        rows = (
+        q = (
             db.query(Annotation, PaperRecord)
             .join(PaperRecord, Annotation.paper_doi == PaperRecord.doi)
             .filter(Annotation.annotator_type == "llm")
             .filter(~Annotation.llm_model.in_(excluded))
-            .order_by(Annotation.llm_model, PaperRecord.doi)
-            .all()
         )
+        if version:
+            q = q.filter(Annotation.model_version == version)
+        rows = q.order_by(Annotation.llm_model, PaperRecord.doi).all()
     finally:
         db.close()
 
@@ -204,7 +224,7 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
     log.info(f"Output directory: {output_dir.resolve()}\n")
 
     print(f"\n{'='*70}")
-    print(f"  LLM-as-Judge Dataset Export")
+    print("  LLM-as-Judge Dataset Export")
     print(f"  Models: {len(all_models)}  |  Annotations: {total_all:,}")
     print(f"  Output: {output_dir.resolve()}")
     print(f"{'='*70}")
@@ -241,6 +261,7 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
                     "is_flagged": ann.is_flagged,
                     "flag_reason": ann.flag_reason or "",
                     "confidence": conf,
+                    "version": ann.model_version or "",
                 }
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
@@ -258,20 +279,29 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
         print(f"     File:        {out_path.name}")
         print(f"     Agreement:   {agreed}/{n} ({agree_pct:.1f}%)")
         print(f"     Flagged:     {flagged} ({100*flagged/n:.1f}%)")
-        print(f"     Confidence:  high={conf_counts.get('high',0)}  "
-              f"medium={conf_counts.get('medium',0)}  "
-              f"low={conf_counts.get('low',0)}  "
-              f"unknown={conf_counts.get('unknown',0)}")
-        print(f"     Labels:      ", end="")
+        print(
+            f"     Confidence:  high={conf_counts.get('high',0)}  "
+            f"medium={conf_counts.get('medium',0)}  "
+            f"low={conf_counts.get('low',0)}  "
+            f"unknown={conf_counts.get('unknown',0)}"
+        )
+        print("     Labels:      ", end="")
         label_parts = []
-        for lbl in ["Methodology", "Dataset", "Review", "Applied", "Theoretical", "Unclassifiable"]:
+        for lbl in [
+            "Methodology",
+            "Dataset",
+            "Review",
+            "Applied",
+            "Theoretical",
+            "Unclassifiable",
+        ]:
             cnt = label_counts.get(lbl, 0)
             if cnt:
                 label_parts.append(f"{lbl}={cnt}")
         print(", ".join(label_parts))
 
     # ── Human annotations export ───────────────────────────────────────
-    human_rows = _query_human_annotations(Session, excluded)
+    human_rows = _query_human_annotations(Session, excluded, version=version)
     n_human = len(human_rows) if human_rows else 0
 
     if human_rows:
@@ -297,6 +327,7 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
                     "is_flagged": ann.is_flagged,
                     "flag_reason": ann.flag_reason or "",
                     "confidence": "human",
+                    "version": ann.model_version or "",
                 }
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
@@ -309,9 +340,16 @@ def export(output_dir: Path, db_url: str | None = None) -> None:
         print(f"\n  ── Human Annotations  ({n_h:,} records) ──")
         print(f"     File:        {human_out.name}")
         print(f"     Agreement:   {human_agreed}/{n_h} ({agree_pct:.1f}%)")
-        print(f"     Labels:      ", end="")
+        print("     Labels:      ", end="")
         label_parts = []
-        for lbl in ["Methodology", "Dataset", "Review", "Applied", "Theoretical", "Unclassifiable"]:
+        for lbl in [
+            "Methodology",
+            "Dataset",
+            "Review",
+            "Applied",
+            "Theoretical",
+            "Unclassifiable",
+        ]:
             cnt = human_label_counts.get(lbl, 0)
             if cnt:
                 label_parts.append(f"{lbl}={cnt}")
@@ -342,8 +380,14 @@ def main() -> None:
         default=None,
         help="Override DATABASE_URL (default: from environment)",
     )
+    parser.add_argument(
+        "--version",
+        default="",
+        help="Export only annotations of this model round (e.g. v0.1.4). "
+        "Default: all rounds merged.",
+    )
     args = parser.parse_args()
-    export(args.output_dir, args.db_url)
+    export(args.output_dir, args.db_url, args.version)
 
 
 if __name__ == "__main__":

@@ -169,7 +169,12 @@
           </p>
         </div>
         <div v-else-if="hubReadOnly" class="vote-blocker">
-          <p>
+          <p v-if="archive">
+            📦 This is a read-only archive of round
+            <strong>{{ version }}</strong
+            >. Annotation contributions for this round are closed.
+          </p>
+          <p v-else>
             📦 The collaborative hub is now archived. Download the curated
             datasets and the fine-tuned model on
             <a :href="hfDatasetsUrl" target="_blank" rel="noopener"
@@ -284,9 +289,12 @@ export default {
         "Review",
         "Applied",
         "Theoretical",
+        "Unclassifiable",
       ],
     },
     hubReadOnly: { type: Boolean, default: false },
+    archive: { type: Boolean, default: false },
+    version: { type: String, default: "" },
   },
   emits: ["submitVote", "importAndAnnotate", "update:voteForm"],
   computed: {
@@ -545,6 +553,9 @@ export default {
 .intent-value.Theoretical {
   color: #fb7185;
 }
+.intent-value.Unclassifiable {
+  color: #94a3b8;
+}
 
 /* Annotations */
 .annotations-section h3 {
@@ -685,6 +696,11 @@ export default {
   color: #fda4af;
   border: 1px solid rgba(244, 63, 94, 0.3);
 }
+.label-badge.Unclassifiable {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
 .empty-annotations {
   color: var(--text-muted);
   font-style: italic;
@@ -766,6 +782,11 @@ export default {
   background: rgba(244, 63, 94, 0.2);
   border-color: #fb7185;
   color: #fb7185;
+}
+.btn-selector.active.Unclassifiable {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: #94a3b8;
+  color: #cbd5e1;
 }
 .checkbox-container {
   display: flex;

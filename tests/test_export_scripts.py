@@ -4,13 +4,16 @@ import importlib
 import json
 import os
 import sys
-from pathlib import Path
 
 import pytest
 
 # Ensure backend + scripts are importable
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend")))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend"))
+)
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts"))
+)
 
 
 # ── Unit: _normalize_model ────────────────────────────────────────────────────
@@ -35,108 +38,187 @@ def test_normalize_model_merges_mtp():
 def populated_db(temp_db):
     """Populate the temp DB with paper records and LLM annotations."""
     import database as _db
+
     importlib.reload(_db)
     from models import Annotation, PaperRecord
 
     session = _db.SessionLocal()
     try:
         # Paper 1 — clean, all models agree
-        session.add(PaperRecord(
-            doi="10.1234/paper.1",
-            title="Test Paper One",
-            abstract="We propose a novel method for NLP.",
-            initial_intent="Methodology",
-            source="arxiv",
-        ))
+        session.add(
+            PaperRecord(
+                doi="10.1234/paper.1",
+                title="Test Paper One",
+                abstract="We propose a novel method for NLP.",
+                initial_intent="Methodology",
+                source="arxiv",
+            )
+        )
         # Paper 2 — flagged by 2 models (should be excluded from golden)
-        session.add(PaperRecord(
-            doi="10.1234/paper.2",
-            title="Garbled Paper",
-            abstract="asdf jkl; qwerty xxxxxx.",
-            initial_intent="Methodology",
-            source="arxiv",
-        ))
+        session.add(
+            PaperRecord(
+                doi="10.1234/paper.2",
+                title="Garbled Paper",
+                abstract="asdf jkl; qwerty xxxxxx.",
+                initial_intent="Methodology",
+                source="arxiv",
+            )
+        )
         # Paper 3 — Dataset paper
-        session.add(PaperRecord(
-            doi="10.1234/paper.3",
-            title="A New Benchmark Dataset",
-            abstract="We introduce a new dataset for intent classification.",
-            initial_intent="Dataset",
-            source="arxiv",
-        ))
+        session.add(
+            PaperRecord(
+                doi="10.1234/paper.3",
+                title="A New Benchmark Dataset",
+                abstract="We introduce a new dataset for intent classification.",
+                initial_intent="Dataset",
+                source="arxiv",
+            )
+        )
         # Paper 4 — disagreement between models
-        session.add(PaperRecord(
-            doi="10.1234/paper.4",
-            title="Survey of Methods",
-            abstract="We review recent advances in NLP methods.",
-            initial_intent="Methodology",
-            source="arxiv",
-        ))
+        session.add(
+            PaperRecord(
+                doi="10.1234/paper.4",
+                title="Survey of Methods",
+                abstract="We review recent advances in NLP methods.",
+                initial_intent="Methodology",
+                source="arxiv",
+            )
+        )
         # Paper 5 — Applied
-        session.add(PaperRecord(
-            doi="10.1234/paper.5",
-            title="Clinical Application of BERT",
-            abstract="We apply BERT to clinical note classification.",
-            initial_intent="Applied",
-            source="arxiv",
-        ))
+        session.add(
+            PaperRecord(
+                doi="10.1234/paper.5",
+                title="Clinical Application of BERT",
+                abstract="We apply BERT to clinical note classification.",
+                initial_intent="Applied",
+                source="arxiv",
+            )
+        )
         session.flush()
 
         # Model A annotations (good model)
         for doi, label, flagged, flag_reason, comment in [
-            ("10.1234/paper.1", "Methodology", False, None, "[HIGH confidence] Clearly a novel method paper."),
-            ("10.1234/paper.2", "Methodology", True, "Garbled text", "[LOW confidence] Abstract appears to be garbled."),
-            ("10.1234/paper.3", "Dataset", False, None, "[HIGH confidence] Clearly introduces a new dataset."),
-            ("10.1234/paper.4", "Review", False, None, "[MEDIUM confidence] This is a survey paper."),
-            ("10.1234/paper.5", "Applied", False, None, "[HIGH confidence] Clinical application of BERT."),
+            (
+                "10.1234/paper.1",
+                "Methodology",
+                False,
+                None,
+                "[HIGH confidence] Clearly a novel method paper.",
+            ),
+            (
+                "10.1234/paper.2",
+                "Methodology",
+                True,
+                "Garbled text",
+                "[LOW confidence] Abstract appears to be garbled.",
+            ),
+            (
+                "10.1234/paper.3",
+                "Dataset",
+                False,
+                None,
+                "[HIGH confidence] Clearly introduces a new dataset.",
+            ),
+            (
+                "10.1234/paper.4",
+                "Review",
+                False,
+                None,
+                "[MEDIUM confidence] This is a survey paper.",
+            ),
+            (
+                "10.1234/paper.5",
+                "Applied",
+                False,
+                None,
+                "[HIGH confidence] Clinical application of BERT.",
+            ),
         ]:
-            session.add(Annotation(
-                paper_doi=doi,
-                llm_model="Gemma-4-E4B-it-GGUF",
-                annotator_type="llm",
-                proposed_label=label,
-                is_flagged=flagged,
-                flag_reason=flag_reason,
-                comment=comment,
-            ))
+            session.add(
+                Annotation(
+                    paper_doi=doi,
+                    llm_model="Gemma-4-E4B-it-GGUF",
+                    annotator_type="llm",
+                    proposed_label=label,
+                    is_flagged=flagged,
+                    flag_reason=flag_reason,
+                    comment=comment,
+                )
+            )
 
         for doi, label, flagged, flag_reason, comment in [
-            ("10.1234/paper.1", "Methodology", False, None, "[HIGH confidence] Introduces a new method."),
-            ("10.1234/paper.2", "Methodology", True, "Garbled text", "[LOW confidence] Cannot parse abstract."),
-            ("10.1234/paper.3", "Dataset", False, None, "[MEDIUM confidence] Dataset contribution."),
-            ("10.1234/paper.4", "Methodology", False, None, "[LOW confidence] I think this is methodology."),
-            ("10.1234/paper.5", "Applied", False, None, "[HIGH confidence] Applied work in clinical domain."),
+            (
+                "10.1234/paper.1",
+                "Methodology",
+                False,
+                None,
+                "[HIGH confidence] Introduces a new method.",
+            ),
+            (
+                "10.1234/paper.2",
+                "Methodology",
+                True,
+                "Garbled text",
+                "[LOW confidence] Cannot parse abstract.",
+            ),
+            (
+                "10.1234/paper.3",
+                "Dataset",
+                False,
+                None,
+                "[MEDIUM confidence] Dataset contribution.",
+            ),
+            (
+                "10.1234/paper.4",
+                "Methodology",
+                False,
+                None,
+                "[LOW confidence] I think this is methodology.",
+            ),
+            (
+                "10.1234/paper.5",
+                "Applied",
+                False,
+                None,
+                "[HIGH confidence] Applied work in clinical domain.",
+            ),
         ]:
-            session.add(Annotation(
-                paper_doi=doi,
-                llm_model="Qwen3.5-35B-A3B-GGUF",
-                annotator_type="llm",
-                proposed_label=label,
-                is_flagged=flagged,
-                flag_reason=flag_reason,
-                comment=comment,
-            ))
+            session.add(
+                Annotation(
+                    paper_doi=doi,
+                    llm_model="Qwen3.5-35B-A3B-GGUF",
+                    annotator_type="llm",
+                    proposed_label=label,
+                    is_flagged=flagged,
+                    flag_reason=flag_reason,
+                    comment=comment,
+                )
+            )
 
         # Model C — excluded model
-        session.add(Annotation(
-            paper_doi="10.1234/paper.1",
-            llm_model="DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
-            annotator_type="llm",
-            proposed_label="Review",
-            is_flagged=False,
-            comment="[LOW confidence] I disagree with Methodology.",
-        ))
+        session.add(
+            Annotation(
+                paper_doi="10.1234/paper.1",
+                llm_model="DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+                annotator_type="llm",
+                proposed_label="Review",
+                is_flagged=False,
+                comment="[LOW confidence] I disagree with Methodology.",
+            )
+        )
 
         # Human annotation on Paper 1
-        session.add(Annotation(
-            paper_doi="10.1234/paper.1",
-            user_id="hf|testuser",
-            llm_model=None,
-            annotator_type="human",
-            proposed_label="Methodology",
-            is_flagged=False,
-            comment="Clearly a methodology paper — novel architecture.",
-        ))
+        session.add(
+            Annotation(
+                paper_doi="10.1234/paper.1",
+                user_id="hf|testuser",
+                llm_model=None,
+                annotator_type="human",
+                proposed_label="Methodology",
+                is_flagged=False,
+                comment="Clearly a methodology paper — novel architecture.",
+            )
+        )
 
         session.commit()
     finally:
@@ -151,13 +233,16 @@ def populated_db(temp_db):
 def test_export_per_model_files(populated_db, tmp_path, monkeypatch):
     """Should produce one JSONL file per non-excluded model."""
     from export_llm_judge_dataset import export
-    monkeypatch.setattr("export_llm_judge_dataset.EXCLUDED_JUDGE_MODELS", ["DeepSeek-R1-Distill-Qwen-1.5B-GGUF"])
+
+    monkeypatch.setattr(
+        "export_llm_judge_dataset.EXCLUDED_JUDGE_MODELS",
+        ["DeepSeek-R1-Distill-Qwen-1.5B-GGUF"],
+    )
 
     export(output_dir=tmp_path, db_url=populated_db)
 
     files = sorted(tmp_path.glob("llm_judge_*.jsonl"))
     model_names = {f.stem.removeprefix("llm_judge_") for f in files}
-
     assert len(files) == 2
     assert "Gemma-4-E4B-it-GGUF" in model_names
     assert "Qwen3.5-35B-A3B-GGUF" in model_names
@@ -168,6 +253,7 @@ def test_export_per_model_files(populated_db, tmp_path, monkeypatch):
 def test_export_record_fields(populated_db, tmp_path, monkeypatch):
     """Each exported record should have all required fields."""
     from export_llm_judge_dataset import export
+
     monkeypatch.setattr("export_llm_judge_dataset.EXCLUDED_JUDGE_MODELS", [])
 
     export(output_dir=tmp_path, db_url=populated_db)
@@ -211,6 +297,7 @@ def test_export_record_fields(populated_db, tmp_path, monkeypatch):
 def test_export_confidence_parsing(populated_db, tmp_path, monkeypatch):
     """Confidence should be correctly extracted from comment field."""
     from export_llm_judge_dataset import export
+
     monkeypatch.setattr("export_llm_judge_dataset.EXCLUDED_JUDGE_MODELS", [])
 
     export(output_dir=tmp_path, db_url=populated_db)
@@ -236,6 +323,7 @@ def test_export_confidence_parsing(populated_db, tmp_path, monkeypatch):
 def test_export_human_annotations(populated_db, tmp_path, monkeypatch):
     """Should produce a human_annotations.jsonl file."""
     from export_llm_judge_dataset import export
+
     monkeypatch.setattr("export_llm_judge_dataset.EXCLUDED_JUDGE_MODELS", [])
 
     export(output_dir=tmp_path, db_url=populated_db)
@@ -265,14 +353,54 @@ def judge_dataset_dir(tmp_path):
     with at least 2 records per label for stratification."""
     # Paper templates: 2 per label = 10 papers
     papers = [
-        ("10.1234/m1", "Novel Neural Architecture", "We propose a novel transformer variant.", "Methodology"),
-        ("10.1234/m2", "Gradient Optimization Method", "A new optimization algorithm for deep learning.", "Methodology"),
-        ("10.1234/d1", "Intent Classification Benchmark", "We introduce a new benchmark dataset.", "Dataset"),
-        ("10.1234/d2", "Multi-lingual NLU Corpus", "A new multilingual corpus for NLU tasks.", "Dataset"),
-        ("10.1234/r1", "Survey of LLM Architectures", "We survey recent advances in LLM architectures.", "Review"),
-        ("10.1234/r2", "Meta-Analysis of Fine-tuning", "A meta-analysis of fine-tuning approaches.", "Review"),
-        ("10.1234/a1", "Clinical BERT Application", "We apply BERT to clinical note classification.", "Applied"),
-        ("10.1234/a2", "Fraud Detection with GNNs", "Applying GNNs to financial fraud detection.", "Applied"),
+        (
+            "10.1234/m1",
+            "Novel Neural Architecture",
+            "We propose a novel transformer variant.",
+            "Methodology",
+        ),
+        (
+            "10.1234/m2",
+            "Gradient Optimization Method",
+            "A new optimization algorithm for deep learning.",
+            "Methodology",
+        ),
+        (
+            "10.1234/d1",
+            "Intent Classification Benchmark",
+            "We introduce a new benchmark dataset.",
+            "Dataset",
+        ),
+        (
+            "10.1234/d2",
+            "Multi-lingual NLU Corpus",
+            "A new multilingual corpus for NLU tasks.",
+            "Dataset",
+        ),
+        (
+            "10.1234/r1",
+            "Survey of LLM Architectures",
+            "We survey recent advances in LLM architectures.",
+            "Review",
+        ),
+        (
+            "10.1234/r2",
+            "Meta-Analysis of Fine-tuning",
+            "A meta-analysis of fine-tuning approaches.",
+            "Review",
+        ),
+        (
+            "10.1234/a1",
+            "Clinical BERT Application",
+            "We apply BERT to clinical note classification.",
+            "Applied",
+        ),
+        (
+            "10.1234/a2",
+            "Fraud Detection with GNNs",
+            "Applying GNNs to financial fraud detection.",
+            "Applied",
+        ),
         ("10.1234/g1", "Garbled Paper", "asdf jkl; qwerty xxxxxx.", "Methodology"),
         ("10.1234/g2", "Corrupted Abstract", ";;;; ### nonsense text.", "Methodology"),
     ]
@@ -281,23 +409,30 @@ def judge_dataset_dir(tmp_path):
     records_a = []
     for doi, title, abstract, label in papers:
         is_garbled = doi in ("10.1234/g1", "10.1234/g2")
-        records_a.append({
-            "doi": doi,
-            "title": title,
-            "description": abstract,
-            "initial_intent": label,
-            "messages": [
-                {"role": "system", "content": "..."},
-                {"role": "user", "content": f"Classify...\nTitle: {title}\nAbstract: {abstract}"},
-                {"role": "assistant", "content": f"Analysis here.\n\n{label}"},
-            ],
-            "reasoning": "Analysis here.",
-            "model_prediction": label,
-            "is_flagged": is_garbled,
-            "flag_reason": "Garbled text" if is_garbled else None,
-            "confidence": "low" if is_garbled else "high",
-        })
-    with open(tmp_path / "llm_judge_Gemma-4-E4B-it-GGUF.jsonl", "w", encoding="utf-8") as f:
+        records_a.append(
+            {
+                "doi": doi,
+                "title": title,
+                "description": abstract,
+                "initial_intent": label,
+                "messages": [
+                    {"role": "system", "content": "..."},
+                    {
+                        "role": "user",
+                        "content": f"Classify...\nTitle: {title}\nAbstract: {abstract}",
+                    },
+                    {"role": "assistant", "content": f"Analysis here.\n\n{label}"},
+                ],
+                "reasoning": "Analysis here.",
+                "model_prediction": label,
+                "is_flagged": is_garbled,
+                "flag_reason": "Garbled text" if is_garbled else None,
+                "confidence": "low" if is_garbled else "high",
+            }
+        )
+    with open(
+        tmp_path / "llm_judge_Gemma-4-E4B-it-GGUF.jsonl", "w", encoding="utf-8"
+    ) as f:
         for r in records_a:
             f.write(json.dumps(r) + "\n")
 
@@ -309,44 +444,53 @@ def judge_dataset_dir(tmp_path):
             pred = "Methodology"  # disagreement
         else:
             pred = label
-        records_b.append({
-            "doi": doi,
-            "title": title,
-            "description": abstract,
-            "initial_intent": label,
-            "messages": [
-                {"role": "system", "content": "..."},
-                {"role": "user", "content": f"Classify...\nTitle: {title}\nAbstract: {abstract}"},
-                {"role": "assistant", "content": f"Alternative view.\n\n{pred}"},
-            ],
-            "reasoning": "Alternative view.",
-            "model_prediction": pred,
-            "is_flagged": is_garbled,
-            "flag_reason": "Garbled text" if is_garbled else None,
-            "confidence": "low" if is_garbled else "medium",
-        })
-    with open(tmp_path / "llm_judge_Qwen3.5-35B-A3B-GGUF.jsonl", "w", encoding="utf-8") as f:
+        records_b.append(
+            {
+                "doi": doi,
+                "title": title,
+                "description": abstract,
+                "initial_intent": label,
+                "messages": [
+                    {"role": "system", "content": "..."},
+                    {
+                        "role": "user",
+                        "content": f"Classify...\nTitle: {title}\nAbstract: {abstract}",
+                    },
+                    {"role": "assistant", "content": f"Alternative view.\n\n{pred}"},
+                ],
+                "reasoning": "Alternative view.",
+                "model_prediction": pred,
+                "is_flagged": is_garbled,
+                "flag_reason": "Garbled text" if is_garbled else None,
+                "confidence": "low" if is_garbled else "medium",
+            }
+        )
+    with open(
+        tmp_path / "llm_judge_Qwen3.5-35B-A3B-GGUF.jsonl", "w", encoding="utf-8"
+    ) as f:
         for r in records_b:
             f.write(json.dumps(r) + "\n")
 
     # Human annotation on one Dataset paper
-    human = [{
-        "doi": "10.1234/d1",
-        "title": "Intent Classification Benchmark",
-        "description": "We introduce a new benchmark dataset.",
-        "initial_intent": "Dataset",
-        "messages": [
-            {"role": "system", "content": "..."},
-            {"role": "user", "content": "Classify..."},
-            {"role": "assistant", "content": "Clearly a dataset paper.\n\nDataset"},
-        ],
-        "reasoning": "Clearly a dataset paper.",
-        "model_prediction": "Dataset",
-        "is_flagged": False,
-        "flag_reason": None,
-        "confidence": "human",
-        "annotator": "hf|testuser",
-    }]
+    human = [
+        {
+            "doi": "10.1234/d1",
+            "title": "Intent Classification Benchmark",
+            "description": "We introduce a new benchmark dataset.",
+            "initial_intent": "Dataset",
+            "messages": [
+                {"role": "system", "content": "..."},
+                {"role": "user", "content": "Classify..."},
+                {"role": "assistant", "content": "Clearly a dataset paper.\n\nDataset"},
+            ],
+            "reasoning": "Clearly a dataset paper.",
+            "model_prediction": "Dataset",
+            "is_flagged": False,
+            "flag_reason": None,
+            "confidence": "human",
+            "annotator": "hf|testuser",
+        }
+    ]
     with open(tmp_path / "human_annotations.jsonl", "w", encoding="utf-8") as f:
         for r in human:
             f.write(json.dumps(r) + "\n")
@@ -359,7 +503,13 @@ def test_golden_unclassifiable_label(judge_dataset_dir, tmp_path):
     from export_golden_dataset import export
 
     out_dir = tmp_path / "golden"
-    export(input_dir=judge_dataset_dir, output_dir=out_dir, val_split=0.2, test_split=0.2, seed=42)
+    export(
+        input_dir=judge_dataset_dir,
+        output_dir=out_dir,
+        val_split=0.2,
+        test_split=0.2,
+        seed=42,
+    )
 
     all_records = []
     for split_name in ["golden_train.jsonl", "golden_val.jsonl", "golden_test.jsonl"]:
@@ -389,7 +539,13 @@ def test_golden_consensus_label(judge_dataset_dir, tmp_path):
     from export_golden_dataset import export
 
     out_dir = tmp_path / "golden"
-    export(input_dir=judge_dataset_dir, output_dir=out_dir, val_split=0.2, test_split=0.2, seed=42)
+    export(
+        input_dir=judge_dataset_dir,
+        output_dir=out_dir,
+        val_split=0.2,
+        test_split=0.2,
+        seed=42,
+    )
 
     all_records = []
     for fname in ["golden_train.jsonl", "golden_val.jsonl", "golden_test.jsonl"]:
@@ -419,7 +575,13 @@ def test_golden_record_fields(judge_dataset_dir, tmp_path):
     from export_golden_dataset import export
 
     out_dir = tmp_path / "golden"
-    export(input_dir=judge_dataset_dir, output_dir=out_dir, val_split=0.2, test_split=0.2, seed=42)
+    export(
+        input_dir=judge_dataset_dir,
+        output_dir=out_dir,
+        val_split=0.2,
+        test_split=0.2,
+        seed=42,
+    )
 
     train_path = out_dir / "golden_train.jsonl"
     assert train_path.exists()
@@ -447,7 +609,13 @@ def test_golden_splits_exist(judge_dataset_dir, tmp_path):
     from export_golden_dataset import export
 
     out_dir = tmp_path / "golden"
-    export(input_dir=judge_dataset_dir, output_dir=out_dir, val_split=0.15, test_split=0.15, seed=42)
+    export(
+        input_dir=judge_dataset_dir,
+        output_dir=out_dir,
+        val_split=0.15,
+        test_split=0.15,
+        seed=42,
+    )
 
     assert (out_dir / "golden_train.jsonl").exists()
     assert (out_dir / "golden_val.jsonl").exists()
@@ -460,7 +628,13 @@ def test_golden_stats_file(judge_dataset_dir, tmp_path):
     from export_golden_dataset import export
 
     out_dir = tmp_path / "golden"
-    export(input_dir=judge_dataset_dir, output_dir=out_dir, val_split=0.15, test_split=0.15, seed=42)
+    export(
+        input_dir=judge_dataset_dir,
+        output_dir=out_dir,
+        val_split=0.15,
+        test_split=0.15,
+        seed=42,
+    )
 
     with open(out_dir / "golden_stats.json", encoding="utf-8") as f:
         stats = json.load(f)
@@ -479,7 +653,13 @@ def test_golden_dataset_class_in_splits(judge_dataset_dir, tmp_path):
     from export_golden_dataset import export
 
     out_dir = tmp_path / "golden"
-    export(input_dir=judge_dataset_dir, output_dir=out_dir, val_split=0.2, test_split=0.2, seed=42)
+    export(
+        input_dir=judge_dataset_dir,
+        output_dir=out_dir,
+        val_split=0.2,
+        test_split=0.2,
+        seed=42,
+    )
 
     all_labels: dict[str, set] = {}
     for split_name in ["golden_train.jsonl", "golden_val.jsonl", "golden_test.jsonl"]:
@@ -492,3 +672,66 @@ def test_golden_dataset_class_in_splits(judge_dataset_dir, tmp_path):
     all_combined = set.union(*all_labels.values())
     assert "Unclassifiable" in all_combined, "Unclassifiable missing from all splits"
     assert "Dataset" in all_combined, "Dataset missing from all splits"
+
+
+def test_export_version_filter(temp_db, tmp_path, monkeypatch):
+    """--version restricts the LLM-judge export to that round's annotations."""
+    from export_llm_judge_dataset import export
+
+    monkeypatch.setattr("export_llm_judge_dataset.EXCLUDED_JUDGE_MODELS", [])
+
+    from database import SessionLocal
+    from models import Annotation, PaperRecord
+
+    db = SessionLocal()
+    try:
+        p_old = PaperRecord(
+            doi="10.1234/exp.old",
+            title="Old",
+            abstract="abs",
+            initial_intent="Methodology",
+            source="arxiv",
+            model_version="v0.1.3",
+        )
+        p_new = PaperRecord(
+            doi="10.1234/exp.new",
+            title="New",
+            abstract="abs",
+            initial_intent="Methodology",
+            source="arxiv",
+            model_version="v0.1.4",
+        )
+        db.add_all([p_old, p_new])
+        db.flush()
+        db.add(
+            Annotation(
+                paper_doi=p_old.doi,
+                llm_model="Gemma-4-E4B-it-GGUF",
+                annotator_type="llm",
+                proposed_label="Applied",
+                model_version="v0.1.3",
+            )
+        )
+        db.add(
+            Annotation(
+                paper_doi=p_new.doi,
+                llm_model="Gemma-4-E4B-it-GGUF",
+                annotator_type="llm",
+                proposed_label="Review",
+                model_version="v0.1.4",
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    out = tmp_path / "judge-v014"
+    export(output_dir=out, db_url=temp_db, version="v0.1.4")
+
+    files = sorted(out.glob("llm_judge_*.jsonl"))
+    assert len(files) == 1
+    records = [json.loads(line) for line in files[0].read_text().splitlines()]
+    assert len(records) == 1
+    assert records[0]["doi"] == "10.1234/exp.new"
+    assert records[0]["model_prediction"] == "Review"
+    assert records[0]["version"] == "v0.1.4"

@@ -31,6 +31,9 @@ config:
   llmApiKey: "not-needed"
   hfDatasetsUrl: "https://huggingface.co/collections/ethicalabs/openaire-ai-hackathon-2026"
   hubReadOnly: false
+  # Active collab annotation round — the model version being annotated now.
+  # Stamped on all new papers/annotations; the hub filters by it by default.
+  modelVersion: "v0.1.4"
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 # Set externalUrl to use a managed PostgreSQL (skips built-in deployment).
