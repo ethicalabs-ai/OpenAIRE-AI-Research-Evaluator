@@ -361,6 +361,123 @@ def test_process_paper_remote_passes_computed_prediction(
     assert received["intent"] == "Theoretical"
 
 
+def test_process_paper_remote_skips_catalogued_papers(monkeypatch):
+    """Live sources skip papers already in the remote catalog before the LLM call."""
+    import judge_cli
+
+    judged = []
+    monkeypatch.setattr(judge_cli, "_remote_paper_exists", lambda doi, url: True)
+    monkeypatch.setattr(
+        judge_cli, "judge_paper", lambda *a, **k: judged.append(1) or None
+    )
+
+    paper = {
+        "doi": "10.1234/cat.1",
+        "title": "T",
+        "abstract": "A",
+        "source": "openaire",
+    }
+    ok = judge_cli.process_paper(
+        paper,
+        "test-model",
+        dry_run=False,
+        db=None,
+        remote_url="https://example.com",
+        remote_api_key="test-key",
+    )
+    assert ok is False
+    assert judged == []  # LLM never called
+
+
+def test_process_paper_remote_judges_new_paper(
+    temp_db, mock_judge_verdict, monkeypatch
+):
+    """A paper not yet in the remote catalog gets judged normally."""
+    import judge_cli
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(judge_cli, "_remote_paper_exists", lambda doi, url: False)
+    monkeypatch.setattr(
+        judge_cli,
+        "classify_paper",
+        lambda title, abstract: SimpleNamespace(label="Applied"),
+    )
+    monkeypatch.setattr(
+        judge_cli,
+        "judge_paper",
+        lambda title, abstract, prediction, model, timeout=300: mock_judge_verdict,
+    )
+    captured = {}
+
+    def fake_post(paper, verdict, model, url, key, initial_intent=""):
+        captured["intent"] = initial_intent
+        return "saved"
+
+    monkeypatch.setattr(judge_cli, "post_annotation_remote", fake_post)
+
+    paper = {
+        "doi": "10.1234/new.1",
+        "title": "T",
+        "abstract": "A",
+        "source": "openaire",
+    }
+    ok = judge_cli.process_paper(
+        paper,
+        "test-model",
+        dry_run=False,
+        db=None,
+        remote_url="https://example.com",
+        remote_api_key="test-key",
+    )
+    assert ok is True
+    assert captured["intent"] == "Applied"
+
+
+def test_process_paper_remote_catalog_bypasses_exist_check(
+    monkeypatch, mock_judge_verdict
+):
+    """Catalog source (skip_catalogued=False) must not run the exists check —
+    exclude_model already filters judged papers."""
+    import judge_cli
+    from types import SimpleNamespace
+
+    check_called = []
+    monkeypatch.setattr(
+        judge_cli,
+        "_remote_paper_exists",
+        lambda doi, url: check_called.append(doi) or True,
+    )
+    monkeypatch.setattr(
+        judge_cli,
+        "classify_paper",
+        lambda title, abstract: SimpleNamespace(label="Applied"),
+    )
+    monkeypatch.setattr(
+        judge_cli,
+        "judge_paper",
+        lambda title, abstract, prediction, model, timeout=300: mock_judge_verdict,
+    )
+    monkeypatch.setattr(judge_cli, "post_annotation_remote", lambda *a, **k: "saved")
+
+    paper = {
+        "doi": "10.1234/cat.2",
+        "title": "T",
+        "abstract": "A",
+        "source": "catalog",
+    }
+    ok = judge_cli.process_paper(
+        paper,
+        "test-model",
+        dry_run=False,
+        db=None,
+        remote_url="https://example.com",
+        remote_api_key="test-key",
+        skip_catalogued=False,
+    )
+    assert ok is True
+    assert check_called == []
+
+
 def test_judge_batch_dedup_and_counts(monkeypatch):
     """Duplicate DOIs within a run are skipped; success/failure counted."""
     import judge_cli
