@@ -511,6 +511,61 @@ def test_judge_upserts_existing(temp_db, monkeypatch):
         db.close()
 
 
+def test_judge_rejudge_updates_initial_intent(temp_db, monkeypatch):
+    """Re-judging an existing paper refreshes its stored prediction, so a
+    --force catalog re-run fixes placeholder labels."""
+    monkeypatch.setattr("server.API_KEY", "test-key")
+    monkeypatch.setattr("server._get_redis", lambda: None)
+    import server as _srv
+    from fastapi.testclient import TestClient
+
+    client = TestClient(_srv.app)
+    headers = {"Authorization": "Bearer test-key"}
+
+    r1 = client.post(
+        "/api/annotations/judge",
+        json={
+            "doi": "10.1234/judge-refresh",
+            "title": "T",
+            "abstract": "A",
+            "llm_model": "test-model",
+            "initial_intent": "Methodology",  # legacy placeholder
+            "proposed_label": "Applied",
+        },
+        headers=headers,
+    )
+    assert r1.status_code == 200
+
+    r2 = client.post(
+        "/api/annotations/judge",
+        json={
+            "doi": "10.1234/judge-refresh",
+            "title": "T",
+            "abstract": "A",
+            "llm_model": "test-model",
+            "initial_intent": "Unclassifiable",  # real Echo label from re-run
+            "proposed_label": "Unclassifiable",
+        },
+        headers=headers,
+    )
+    assert r2.status_code == 200
+
+    from database import SessionLocal
+    from models import PaperRecord
+
+    db = SessionLocal()
+    try:
+        p = (
+            db.query(PaperRecord)
+            .filter(PaperRecord.doi == "10.1234/judge-refresh")
+            .first()
+        )
+        assert p is not None
+        assert p.initial_intent == "Unclassifiable"
+    finally:
+        db.close()
+
+
 def test_hub_read_only_blocks_writes(temp_db, monkeypatch):
     """When HUB_READ_ONLY is set, vote/judge/import return 503."""
     monkeypatch.setattr("server.HUB_READ_ONLY", True)

@@ -1430,6 +1430,11 @@ def judge_annotation(
         )
         db.add(p)
         db.flush()
+    elif req.initial_intent:
+        # Re-judged papers refresh the stored prediction (the CLI now sends
+        # the locally computed Echo label) — previously only the annotation
+        # was upserted, so re-runs left placeholder labels in place.
+        p.initial_intent = req.initial_intent
 
     # Upsert: overwrite existing annotation for this (doi, model)
     existing = (
