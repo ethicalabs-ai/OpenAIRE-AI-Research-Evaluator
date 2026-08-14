@@ -1508,15 +1508,16 @@ def get_stats(version: str = "", db: Session = Depends(get_db)):
         total_papers = base.count()
         total_users = db.query(DBUser).count()
 
-        # Flagged: papers with > 3 flag annotations in this round — single subquery
+        # Flagged: any paper with at least one flag annotation in this round.
+        # (The old >3 threshold hid single-judge flags like those in the
+        # v0.1.4 round — a flagged paper should show as flagged.)
         flag_sub = (
-            db.query(DBAnnotation.paper_doi, func.count().label("flag_count"))
+            db.query(DBAnnotation.paper_doi)
             .filter(
                 DBAnnotation.is_flagged == True,  # noqa: E712
                 DBAnnotation.model_version == v,
             )
-            .group_by(DBAnnotation.paper_doi)
-            .having(func.count() > 3)
+            .distinct()
             .subquery()
         )
         flagged_count = base.filter(

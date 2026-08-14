@@ -179,7 +179,7 @@ def test_stats_with_data(temp_db, monkeypatch):
 
 
 def test_stats_flagged(temp_db, monkeypatch):
-    """Papers with > 3 flag annotations count as flagged."""
+    """Papers with at least one flag annotation count as flagged."""
     monkeypatch.setattr("server._get_redis", lambda: None)
     import server as _srv
     from database import SessionLocal
@@ -196,7 +196,15 @@ def test_stats_flagged(temp_db, monkeypatch):
             source="arxiv",
             model_version=server.MODEL_VERSION,
         )
-        db.add(p)
+        p_single = PaperRecord(
+            doi="10.1234/stats.flagged-single",
+            title="F1",
+            abstract="x",
+            initial_intent="Review",
+            source="arxiv",
+            model_version=server.MODEL_VERSION,
+        )
+        db.add_all([p, p_single])
         db.flush()
         for i in range(4):
             db.add(
@@ -208,10 +216,20 @@ def test_stats_flagged(temp_db, monkeypatch):
                     model_version=server.MODEL_VERSION,
                 )
             )
+        # A single flag must count too (the old >3 rule hid these).
+        db.add(
+            DBAnnotation(
+                paper_doi="10.1234/stats.flagged-single",
+                is_flagged=True,
+                annotator_type="llm",
+                llm_model="single-model",
+                model_version=server.MODEL_VERSION,
+            )
+        )
         db.commit()
 
         result = _srv.get_stats(db=db)
-        assert result["flagged_papers"] == 1
+        assert result["flagged_papers"] == 2
     finally:
         db.close()
 
