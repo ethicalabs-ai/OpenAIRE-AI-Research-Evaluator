@@ -12,6 +12,9 @@ celery
 redis
 psycopg2-binary>=2.9
 langdetect
+click
+tqdm
+scikit-learn
 fastapi
 uvicorn
 python-multipart
@@ -20,4 +23,3 @@ alembic
 python-jose[cryptography]
 python-dotenv>=1.0.0
 openai>=1.0.0
-git+https://github.com/ethicalabs-ai/Echo-DSRN.git

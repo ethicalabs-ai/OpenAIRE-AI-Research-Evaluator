@@ -75,7 +75,7 @@ This dispatches 100 papers per model (2,000 total tasks for the full panel) to t
 
 ### Phase 5 — The Golden Dataset
 
-All annotations are stored in a SQLite database (`data/collaborative.db`). The `judge_eval.py` script computes:
+All annotations are stored in a PostgreSQL database. The `judge_eval.py` script computes:
 
 - Agreement rates between judges
 - Per-class accuracy against ground truth (when available)
@@ -120,7 +120,7 @@ This project is designed to be remixed. Here is what you can take and adapt:
 | **OpenAIRE Graph integration** | The keyword streaming approach works for any research domain. The fetcher handles both arXiv and OpenAIRE APIs. |
 | **Async Celery worker pattern** | Fine-grained per-paper tasks with lazy database imports and idempotency — copy the pattern for any batch annotation workflow. |
 | **Dataset preparation & export scripts** | `prepare_research_intent.py` builds balanced training sets from public APIs; `export_llm_judge_dataset.py` and `export_golden_dataset.py` produce the published LLM-as-Judge and golden CLF datasets (per-model ChatML exports, consensus labelling with 6 classes incl. Unclassifiable, stratified splits). Adapt the keyword banks, label taxonomy, and consensus rules. |
-| **Echo-DSRN classifier** | The model is on Hugging Face (gated — request access). `model.classify(title + abstract, tokenizer)` is the entire API. Swap the classification head for your own labels. |
+| **Echo-DSRN classifier** | The model is on Hugging Face (public). `model.classify(title + abstract, tokenizer)` is the entire API. Swap the classification head for your own labels. |
 
 ## License
 

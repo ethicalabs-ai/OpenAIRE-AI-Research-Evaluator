@@ -1,6 +1,6 @@
 # Inference
 
-> **Model:** [`ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF`](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF) — gated repo, [request access](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF) before use.
+> **Model:** [`ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF`](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF) — public repo, 6-class (Methodology, Dataset, Review, Applied, Theoretical, Unclassifiable).
 
 ## Install
 
@@ -15,10 +15,10 @@ from echo_dsrn import EchoForSequenceClassification
 from transformers import AutoTokenizer
 
 model     = EchoForSequenceClassification.from_pretrained(
-    "ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF", trust_remote_code=True
+    "ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF", trust_remote_code=True
 )
 tokenizer = AutoTokenizer.from_pretrained(
-    "ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF", trust_remote_code=True
+    "ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF", trust_remote_code=True
 )
 
 label, probs = model.classify(
@@ -27,7 +27,7 @@ label, probs = model.classify(
     tokenizer=tokenizer,
 )
 print(label, probs)
-# → Methodology  tensor([0.87, 0.03, 0.02, 0.06, 0.02])
+# → Methodology  tensor([0.87, 0.03, 0.02, 0.06, 0.02, 0.00])
 ```
 
 ## Model Specs
@@ -41,6 +41,7 @@ print(label, probs)
 | Attention heads | 4 |
 | Vocab size | 32,017 tokens |
 | Precision | bfloat16 |
+| Classes | 6 (incl. Unclassifiable) |
 | Inference | Fast on CPU |
 
 > Run `curl /api/model/card` for live specs from the loaded model.

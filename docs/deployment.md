@@ -7,19 +7,9 @@ Deploy the OpenAIRE-AI-Research-Evaluator with Helm on k3s.
 - k3s cluster running
 - `helm` installed
 - Access to the Docker image `ethicalabs/openaire-research-evaluator:latest`
-- [Request access](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF) to the gated Echo-DSRN model
+- The Echo-DSRN model (public on HuggingFace, baked into the image at build)
 
-## 1. Generate PostgreSQL dump
-
-The SQLite golden database must be migrated to PostgreSQL:
-
-```bash
-./scripts/sqlite_to_postgres.sh
-```
-
-Generates `data/collaborative_pg.sql` — ready for PostgreSQL import.
-
-## 2. Install
+## 1. Install
 
 ```bash
 helm install evaluator ./helm/openaire-research-evaluator \
@@ -41,30 +31,21 @@ ingress:
   host: openaire-eval.local
 config:
   llmBaseUrl: http://<llm-server-host>:<llm-server-port>/v1
+  # Active collab annotation round (stamped on new papers/annotations).
+  modelVersion: "v0.1.4"
+  # Set true to close the hub (browse-only). Default false.
+  hubReadOnly: false
 ```
 
 ```bash
 helm install evaluator ./helm/openaire-research-evaluator -f values.local.yaml
 ```
 
-## 3. Load golden data
+The web container runs `alembic upgrade head` on startup — existing rows are
+backfilled to the legacy round (`v0.1.3`) and stay browsable at
+`/collab/archive/v0.1.3/`.
 
-Wait for PostgreSQL to be ready, then import:
-
-```bash
-kubectl cp data/collaborative_pg.sql \
-  $(kubectl get pod -l component=postgres -o jsonpath='{.items[0].metadata.name}'):/tmp/collaborative_pg.sql
-
-kubectl exec -it deployment/evaluator-openaire-research-evaluator-postgres -- \
-  psql -U postgres -d echo_dsrn -f /tmp/collaborative_pg.sql
-
-# Reset auto-increment sequences after import (IDs were explicit in the dump)
-kubectl exec deployment/evaluator-openaire-research-evaluator-postgres -- \
-  psql -U postgres -d echo_dsrn -c \
-  "SELECT setval('annotations_id_seq', COALESCE((SELECT MAX(id) FROM annotations), 1))"
-```
-
-## 4. Access
+## 2. Access
 
 ```bash
 kubectl port-forward svc/evaluator-openaire-research-evaluator-web 7860:7860

@@ -1,6 +1,6 @@
 # LLM-as-Judge
 
-The LLM-as-Judge pipeline evaluates Echo-DSRN predictions against high-capability LLMs and produces a golden consensus dataset in `data/collaborative.db`.
+The LLM-as-Judge pipeline evaluates Echo-DSRN predictions against high-capability LLMs and produces a golden consensus dataset in the annotation database.
 
 ## Search Queries
 

@@ -1,6 +1,30 @@
 import os
 
 # =============================================================================
+# Collaborative hub — active annotation round
+# =============================================================================
+# The version tag stamped on every new paper import / annotation during the
+# current data-collection round. This is the version of the MODEL being
+# evaluated and annotated right now (v0.1.4), NOT the model that will later be
+# trained from the collected data (v0.1.5). The hub lists, aggregates, and
+# stats are filtered to this version by default. Previous rounds stay
+# queryable through the archive (e.g. /collab/archive/v0.1.3/).
+# Override via MODEL_VERSION.
+MODEL_VERSION: str = os.getenv("MODEL_VERSION", "v0.1.4")
+
+# Research-intent classes exposed to the hub UI (human voting + filters).
+# Order matters — it drives the label-selector row. The classifier's own
+# id2label stays authoritative for model predictions.
+INTENT_CLASS_LABELS: list[str] = [
+    "Methodology",
+    "Dataset",
+    "Review",
+    "Applied",
+    "Theoretical",
+    "Unclassifiable",
+]
+
+# =============================================================================
 # LLM-as-Judge configuration
 # =============================================================================
 
@@ -53,9 +77,7 @@ HUB_READ_ONLY: bool = os.getenv("HUB_READ_ONLY", "").lower() in ("1", "true", "y
 # =============================================================================
 # Single API key for machine-to-machine endpoints.
 # Set to a strong random value in production.
-API_KEY: str = os.getenv(
-    "API_KEY", "echo-dsrn-mcp-change-me-in-production"
-)
+API_KEY: str = os.getenv("API_KEY", "echo-dsrn-mcp-change-me-in-production")
 
 # =============================================================================
 # Remote Judge API — URL of the deployed server for remote annotation persistence

@@ -14,7 +14,29 @@
         <div class="divider">/</div>
         <div class="app-title">OpenAIRE 2026 — Research Paper Classifier</div>
       </div>
-      <div class="subtitle">Research Paper Intent Classification (5-Class)</div>
+      <div class="subtitle">
+        Research Paper Intent Classification
+        <span v-if="hubStats.model_version" class="version-chip"
+          >{{ hubStats.model_version }} ·
+          {{ (hubStats.labels || []).length || 5 }}-Class</span
+        >
+        <a
+          v-if="!collabArchive && hubStats.archive_versions?.length"
+          class="archive-link"
+          href="#"
+          @click.prevent="
+            navigateTo(`/collab/archive/${hubStats.archive_versions[0]}/`)
+          "
+          >📦 Archive: {{ hubStats.archive_versions[0] }}</a
+        >
+        <a
+          v-if="collabArchive"
+          class="archive-link archive-link--active"
+          href="#"
+          @click.prevent="navigateTo('/collab')"
+          >← Back to {{ hubStats.model_version || "current round" }}</a
+        >
+      </div>
     </header>
 
     <!-- Navigation Tab Bar -->
@@ -44,7 +66,7 @@
       <button
         class="tab-btn"
         :class="{ active: activeTab === 'collab' }"
-        @click="activeTab = 'collab'"
+        @click="selectCollabTab"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -195,7 +217,12 @@
         />
 
         <!-- Collab Tab -->
-        <collab-tab v-if="activeTab === 'collab'" @save="handleSave" />
+        <collab-tab
+          v-if="activeTab === 'collab'"
+          :version="collabVersion"
+          :archive="collabArchive"
+          @save="handleSave"
+        />
 
         <!-- Saved History Tab -->
         <saved-tab
@@ -273,6 +300,16 @@ export default {
     const savedItems = ref([]);
     const isAuthenticated = ref(false);
 
+    // Collab hub round state — '' means the active round (from config),
+    // a non-empty version means we are viewing that round's archive.
+    const hubStats = ref({
+      model_version: "",
+      labels: [],
+      archive_versions: [],
+    });
+    const collabVersion = ref("");
+    const collabArchive = ref(false);
+
     // Load saved items from localStorage
     const loadSavedItems = () => {
       try {
@@ -340,6 +377,16 @@ export default {
 
     const handlePathChange = () => {
       const path = window.location.pathname.replace(/\/$/, "") || "/";
+      // Archive route: /collab/archive/<version> — collab tab, read-only.
+      const archiveMatch = path.match(/^\/collab\/archive\/([^/]+)$/);
+      if (archiveMatch) {
+        collabVersion.value = decodeURIComponent(archiveMatch[1]);
+        collabArchive.value = true;
+        activeTab.value = "collab";
+        return;
+      }
+      collabArchive.value = false;
+      collabVersion.value = "";
       const tabMap = {
         "/collab": "collab",
         "/model_card": "model_card",
@@ -351,7 +398,32 @@ export default {
       if (tab) activeTab.value = tab;
     };
 
+    const navigateTo = (path) => {
+      window.history.pushState(null, "", path);
+      handlePathChange();
+    };
+
+    const selectCollabTab = () => {
+      // Clicking the tab while inside the archive returns to the active round.
+      if (collabArchive.value) {
+        collabArchive.value = false;
+        collabVersion.value = "";
+        window.history.pushState(null, "", "/collab");
+      }
+      activeTab.value = "collab";
+    };
+
+    const fetchHubStats = async () => {
+      try {
+        const res = await fetch("/api/annotations/stats");
+        if (res.ok) hubStats.value = await res.json();
+      } catch (err) {
+        console.error("Failed to load hub stats:", err);
+      }
+    };
+
     watch(activeTab, (newTab) => {
+      if (collabArchive.value) return; // keep the archive URL intact
       const pathMap = {
         collab: "/collab",
         model_card: "/model_card",
@@ -369,6 +441,7 @@ export default {
       checkHealth();
       loadSavedItems();
       syncAuthAndHistory();
+      fetchHubStats();
       handlePathChange();
       window.addEventListener("popstate", handlePathChange);
     });
@@ -468,10 +541,15 @@ export default {
       isInitializing,
       error,
       savedItems,
+      hubStats,
+      collabVersion,
+      collabArchive,
       handleClassify,
       handleSave,
       handleDelete,
       handleError,
+      navigateTo,
+      selectCollabTab,
     };
   },
 };
@@ -553,6 +631,34 @@ export default {
   color: var(--text-secondary);
   font-size: 0.95rem;
   font-weight: 300;
+}
+.version-chip {
+  display: inline-block;
+  margin-left: 0.6rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--accent-blue);
+  background: rgba(0, 242, 254, 0.08);
+  border: 1px solid rgba(0, 242, 254, 0.25);
+}
+.archive-link {
+  display: inline-block;
+  margin-left: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
+  transition: color 0.2s ease;
+}
+.archive-link:hover {
+  color: var(--accent-blue);
+}
+.archive-link--active {
+  color: var(--accent-blue);
+  border-bottom-color: rgba(0, 242, 254, 0.4);
 }
 
 .nav-tabs {

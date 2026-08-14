@@ -10,7 +10,7 @@
       </span>
     </div>
 
-    <div class="search-tabs">
+    <div v-if="!readOnly" class="search-tabs">
       <button
         @click="$emit('update:searchSource', 'local')"
         class="tab-btn"
@@ -250,6 +250,7 @@ export default {
     filterAnnotator: { type: String, default: "" },
     availableLabels: { type: Array, default: () => [] },
     sortBy: { type: String, default: "recent" },
+    readOnly: { type: Boolean, default: false },
   },
   emits: [
     "update:searchQuery",
@@ -527,6 +528,11 @@ export default {
   background: rgba(244, 63, 94, 0.15);
   color: #fda4af;
   border: 1px solid rgba(244, 63, 94, 0.3);
+}
+.label-badge.Unclassifiable {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.3);
 }
 .stats-indicators {
   display: flex;

@@ -6,16 +6,15 @@ A multi-model LLM-as-Judge pipeline that builds annotation datasets to train Ech
 
 ## Quick Start — Docker Compose
 
-**Prerequisites:** Python ≥ 3.12, Node.js ≥ 22, npm ≥ 10, Docker
+**Prerequisites:** Python ≥ 3.12, Node.js ≥ 20, npm ≥ 10, Docker
 
-The Echo-DSRN classifier is a gated HuggingFace model. Before building:
+The Echo-DSRN classifier is a public HuggingFace model (no gated access). To build:
 
-1. [Request access](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF) to the model repo
-2. Create an [HF access token](https://huggingface.co/settings/tokens) with read permissions
-3. Add it to `.env`: `HF_TOKEN=hf_...`
+1. (Optional, only for private repos) Add an [HF access token](https://huggingface.co/settings/tokens) to `.env`: `HF_TOKEN=hf_...`
+2. Build and run:
 
 ```bash
-make rebuild      # builds Docker image with the gated model
+make rebuild      # builds Docker image with the baked-in model
 docker compose up -d
 ```
 
@@ -35,6 +34,7 @@ uv run python backend/server.py
 
 ```bash
 pip install -r requirements.txt
+pip install --no-deps git+https://github.com/ethicalabs-ai/Echo-DSRN.git
 python backend/server.py
 ```
 
@@ -44,9 +44,11 @@ Frontend must be pre-built (`cd frontend && npm ci && npm run build`). App serve
 
 ## LLM-as-Judge
 
-The LLM-as-Judge pipeline evaluates Echo-DSRN predictions against high-capability LLMs and produces a golden consensus dataset in `data/collaborative.db`.
+The LLM-as-Judge pipeline evaluates Echo-DSRN predictions against high-capability LLMs and produces a golden consensus dataset in the annotation database (PostgreSQL in the Docker stack).
 
 ### 1. Migrate the database
+
+Migrations run automatically when the web container starts. To run manually:
 
 ```bash
 uv run alembic -c backend/alembic.ini upgrade head
@@ -114,7 +116,7 @@ Computes agreement rates, class-level accuracy, and per-model alignment stats ag
 | **Frontend** | Vue 3 / Vite dashboard — tabs: Model Card, Collab Hub, OpenAIRE Stream, Free Text, Saved History |
 | **Backend** | FastAPI — inference, arXiv/OpenAIRE proxy, LLM judge orchestration, auth |
 | **Classifier** | Echo-DSRN-98M (`EchoForSequenceClassification`) — sub-millisecond CPU inference |
-| **Annotation DB** | SQLite (`data/collaborative.db`) — stores user classifications and LLM judge labels |
+| **Annotation DB** | PostgreSQL (`echo_dsrn`) — stores user classifications and LLM judge labels |
 | **Worker** | Celery + Redis — async classification queue |
 
 **Intent labels:**
@@ -126,12 +128,15 @@ Computes agreement rates, class-level accuracy, and per-model alignment stats ag
 | `Review` | Surveys or synthesises existing work |
 | `Applied` | Applies existing methods to a domain problem |
 | `Theoretical` | Mathematical or formal analysis without empirical evaluation |
+| `Unclassifiable` | Garbled / non-English / non-academic content, flagged by multiple LLM judges |
+
+The annotation loop is versioned: the Collab Hub annotates against the active model round (v0.1.4, 6-class), and completed rounds stay browsable read-only, e.g. [the v0.1.3 archive](https://openaire-2026.ethicalabs.ai/collab/archive/v0.1.3/).
 
 ---
 
 ## Inference
 
-> **Model:** [`ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF`](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF) — gated repo, [request access](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF) before use.
+> **Model:** [`ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF`](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF) — 6-class (Methodology, Dataset, Review, Applied, Theoretical, Unclassifiable).
 
 ```bash
 pip install git+https://github.com/ethicalabs-ai/Echo-DSRN.git
@@ -142,10 +147,10 @@ from echo_dsrn import EchoForSequenceClassification
 from transformers import AutoTokenizer
 
 model     = EchoForSequenceClassification.from_pretrained(
-    "ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF", trust_remote_code=True
+    "ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF", trust_remote_code=True
 )
 tokenizer = AutoTokenizer.from_pretrained(
-    "ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF", trust_remote_code=True
+    "ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF", trust_remote_code=True
 )
 
 label, probs = model.classify(
@@ -154,7 +159,7 @@ label, probs = model.classify(
     tokenizer=tokenizer,
 )
 print(label, probs)
-# → Methodology  tensor([0.87, 0.03, 0.02, 0.06, 0.02])
+# → Methodology  tensor([0.87, 0.03, 0.02, 0.06, 0.02, 0.00])
 ```
 
 ---

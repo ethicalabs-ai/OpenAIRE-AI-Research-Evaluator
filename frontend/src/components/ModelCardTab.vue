@@ -181,10 +181,11 @@
             <h3>💻 Model Consumption Code</h3>
             <div class="header-right">
               <a
-                href="https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF"
+                v-if="hfRepoUrl"
+                :href="hfRepoUrl"
                 target="_blank"
                 class="hf-link"
-                title="Gated — request access"
+                title="View on HuggingFace"
               >
                 🤗 HF Repo
               </a>
@@ -195,7 +196,7 @@
             <pre><code><span class="comment"># Install the Echo-DSRN package</span>
 pip install git+https://github.com/ethicalabs-ai/Echo-DSRN.git
 
-<span class="comment"># Model is gated — request access at huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF</span>
+<span class="comment"># Model: {{ cardData.hf_repo_id || cardData.model_path }}</span>
 
 <span class="keyword">from</span> echo_dsrn <span class="keyword">import</span> EchoForSequenceClassification
 <span class="keyword">from</span> transformers <span class="keyword">import</span> AutoTokenizer
@@ -224,7 +225,7 @@ print(<span class="string">f"Intent: {label}"</span>)</code></pre>
 </template>
 
 <script>
-import { ref, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 
 export default {
   setup() {
@@ -237,6 +238,13 @@ export default {
       if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
       return num.toLocaleString();
     };
+
+    // The loaded model's HF repo ID (e.g. ethicalabs/Echo-DSRN-v0.1.4-...).
+    // When the checkpoint is a local path it has no repo — hide the link.
+    const hfRepoUrl = computed(() => {
+      const repo = cardData.value?.hf_repo_id || "";
+      return repo.includes("/") ? `https://huggingface.co/${repo}` : "";
+    });
 
     const fetchModelCard = async () => {
       isLoadingData.value = true;
@@ -265,6 +273,7 @@ export default {
       cardData,
       isLoadingData,
       errorMsg,
+      hfRepoUrl,
       fetchModelCard,
       formatNum,
     };

@@ -27,6 +27,11 @@ ENV HF_HOME=/app/hf_cache
 COPY requirements.txt .
 RUN uv pip install --system -r requirements.txt
 
+# Install the Echo-DSRN library without its training/eval dependency bloat
+# (lm-eval, trl, wandb, sentence-transformers are declared by the upstream
+# repo but unused at inference time — its __init__ only imports transformers).
+RUN uv pip install --system --no-deps "git+https://github.com/ethicalabs-ai/Echo-DSRN.git"
+
 # Pre-download the Echo-DSRN intent classifier model (avoids runtime HF download)
 # HF_TOKEN is consumed natively by huggingface_hub / transformers
 RUN --mount=type=secret,id=HF_TOKEN \
@@ -34,13 +39,16 @@ RUN --mount=type=secret,id=HF_TOKEN \
     python -c "\
 from echo_dsrn import EchoForSequenceClassification; \
 from transformers import AutoTokenizer; \
-model_id = 'ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF'; \
+model_id = 'ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF'; \
 EchoForSequenceClassification.from_pretrained(model_id, trust_remote_code=True); \
 AutoTokenizer.from_pretrained(model_id, trust_remote_code=True); \
 print('Model cached at', __import__('os').environ['HF_HOME'])"
 
 # Set default model path to the HF cache so the app doesn't re-download
-ENV INTENT_CLF_PATH=ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF
+ENV INTENT_CLF_PATH=ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF
+
+# Active collab annotation round (overridable at runtime via env/helm)
+ENV MODEL_VERSION=v0.1.4
 
 # Copy the entire application code
 # HuggingFace datasets collection URL (injected at build time for the UI)

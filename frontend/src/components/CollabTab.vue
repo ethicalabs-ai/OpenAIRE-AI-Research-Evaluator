@@ -1,6 +1,15 @@
 <template>
   <div class="collab-container">
+    <div v-if="archive" class="archive-banner">
+      📦 Read-only archive of round
+      <strong>{{ version }}</strong> — annotations are closed for this round.
+      <a href="#" @click.prevent="navigateTo('/collab')"
+        >View current round {{ currentRound }}</a
+      >
+    </div>
+
     <CollabAuth
+      v-if="!archive"
       :user="user"
       :isEditingProfile="isEditingProfile"
       :profileForm="profileForm"
@@ -29,6 +38,7 @@
         :filterAnnotator="filterAnnotator"
         :availableLabels="availableLabels"
         :sortBy="sortBy"
+        :readOnly="archive"
         @update:sortBy="onSortChange"
         @update:searchQuery="searchQuery = $event"
         @update:searchSource="onSearchSourceChange($event)"
@@ -50,14 +60,16 @@
         :livePrediction="livePrediction"
         :voteForm="voteForm"
         :availableLabels="availableLabels"
-        :hubReadOnly="stats.hub_read_only || false"
+        :hubReadOnly="stats.hub_read_only || archive"
+        :archive="archive"
+        :version="version"
         @submitVote="submitVote"
         @importAndAnnotate="importAndAnnotate"
         @update:voteForm="voteForm = $event"
       />
     </div>
 
-    <CollabStats :stats="stats" />
+    <CollabStats :stats="stats" :archiveVersion="version" />
   </div>
 </template>
 
@@ -70,6 +82,12 @@ import CollabStats from "./CollabStats.vue";
 
 export default {
   components: { CollabAuth, CollabCatalog, CollabDetail, CollabStats },
+  props: {
+    // Active round is '' (the server-configured MODEL_VERSION); a non-empty
+    // value switches the tab into a read-only archive of that round.
+    version: { type: String, default: "" },
+    archive: { type: Boolean, default: false },
+  },
   emits: ["save"],
   setup(props, { emit }) {
     const user = ref({
@@ -109,13 +127,50 @@ export default {
       flag_reason: "",
       comment: "",
     });
-    const availableLabels = [
+    const DEFAULT_LABELS = [
       "Methodology",
       "Dataset",
       "Review",
       "Applied",
       "Theoretical",
+      "Unclassifiable",
     ];
+
+    // Labels come from the backend (the active model's class set); fall back
+    // to the 6-label list when stats have not loaded yet.
+    const availableLabels = computed(() =>
+      stats.value.labels && stats.value.labels.length
+        ? stats.value.labels
+        : DEFAULT_LABELS,
+    );
+
+    // Round scoping: explicit archive version wins, otherwise the active
+    // round reported by the server.
+    const activeVersion = computed(
+      () => props.version || stats.value.model_version || "",
+    );
+    const currentRound = computed(
+      () => stats.value.model_version || "current round",
+    );
+
+    const navigateTo = (path) => {
+      window.history.pushState(null, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    };
+
+    // Switching between the active round and an archive does not remount this
+    // tab (activeTab stays 'collab') — refetch the versioned data.
+    watch(
+      () => props.version,
+      () => {
+        displayCount.value = PAGE_SIZE;
+        selectedPaper.value = null;
+        livePrediction.value = null;
+        externalResults.value = [];
+        fetchPapers();
+        fetchStats();
+      },
+    );
 
     const filterLabel = ref("");
     const filterSource = ref("");
@@ -208,6 +263,7 @@ export default {
           offset: 0,
           sort_by: sortBy.value,
         });
+        if (activeVersion.value) params.set("version", activeVersion.value);
         if (filterLabel.value) params.set("label", filterLabel.value);
         if (filterSource.value) params.set("source", filterSource.value);
         const res = await fetch(`/api/annotations/papers?${params}`);
@@ -230,6 +286,7 @@ export default {
           offset: papers.value.length,
           sort_by: sortBy.value,
         });
+        if (activeVersion.value) params.set("version", activeVersion.value);
         if (filterLabel.value) params.set("label", filterLabel.value);
         if (filterSource.value) params.set("source", filterSource.value);
         const res = await fetch(`/api/annotations/papers?${params}`);
@@ -263,6 +320,8 @@ export default {
     };
 
     const onSearchSourceChange = (val) => {
+      // Archives are browse-only: external import is disabled.
+      if (props.archive) return;
       searchSource.value = val;
       searchQuery.value = "";
       externalResults.value = [];
@@ -332,7 +391,12 @@ export default {
 
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/annotations/stats");
+        const url = activeVersion.value
+          ? `/api/annotations/stats?version=${encodeURIComponent(
+              activeVersion.value,
+            )}`
+          : "/api/annotations/stats";
+        const res = await fetch(url);
         stats.value = await res.json();
       } catch (err) {
         console.error(err);
@@ -342,9 +406,12 @@ export default {
     const selectPaper = async (doi) => {
       livePrediction.value = null;
       try {
-        const res = await fetch(
-          `/api/annotations/papers/${encodeURIComponent(doi)}`,
-        );
+        const url = activeVersion.value
+          ? `/api/annotations/papers/${encodeURIComponent(
+              doi,
+            )}?version=${encodeURIComponent(activeVersion.value)}`
+          : `/api/annotations/papers/${encodeURIComponent(doi)}`;
+        const res = await fetch(url);
         if (res.ok) {
           selectedPaper.value = await res.json();
           voteForm.value = {
@@ -386,9 +453,12 @@ export default {
 
     const selectExternalPaper = async (extPaper) => {
       try {
-        const res = await fetch(
-          `/api/annotations/papers/${encodeURIComponent(extPaper.doi)}`,
-        );
+        const url = activeVersion.value
+          ? `/api/annotations/papers/${encodeURIComponent(
+              extPaper.doi,
+            )}?version=${encodeURIComponent(activeVersion.value)}`
+          : `/api/annotations/papers/${encodeURIComponent(extPaper.doi)}`;
+        const res = await fetch(url);
         if (res.ok) {
           const existing = await res.json();
           selectedPaper.value = existing;
@@ -445,6 +515,7 @@ export default {
 
     // ── Voting ────────────────────────────────────────────────────────────────
     const submitVote = async () => {
+      if (props.archive) return;
       try {
         const res = await fetch("/api/annotations/vote", {
           method: "POST",
@@ -468,6 +539,7 @@ export default {
     };
 
     const importAndAnnotate = async () => {
+      if (props.archive) return;
       if (!selectedPaper.value) return;
       try {
         const res = await fetch("/api/annotations/papers", {
@@ -509,6 +581,9 @@ export default {
       await fetchUser();
       await fetchPapers();
       await fetchStats();
+
+      // Archives are read-only — no pending contributions to process.
+      if (props.archive) return;
 
       // Process any pending collab contribution from another tab
       const pendingJson = localStorage.getItem("echo_pending_collab");
@@ -578,6 +653,8 @@ export default {
       filterSource,
       filterFlagged,
       filterAnnotator,
+      currentRound,
+      navigateTo,
     };
   },
 };
@@ -588,6 +665,23 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+.archive-banner {
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.75rem 1.1rem;
+  font-size: 0.9rem;
+}
+.archive-banner strong {
+  color: #facc15;
+}
+.archive-banner a {
+  margin-left: 0.5rem;
+  color: var(--accent-blue);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(0, 242, 254, 0.4);
 }
 .collab-workspace {
   display: grid;

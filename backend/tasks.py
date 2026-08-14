@@ -40,6 +40,7 @@ def classify_and_judge(
     """
     is_remote = bool(remote_url and remote_api_key)
 
+    from config import MODEL_VERSION
     from database import SessionLocal
     from llm_judge import judge_paper
     from models import Annotation, PaperRecord
@@ -70,6 +71,7 @@ def classify_and_judge(
                     abstract=abstract,
                     initial_intent=initial_intent,
                     source=source,
+                    model_version=MODEL_VERSION,
                 )
                 db.add(p)
                 try:
@@ -92,7 +94,12 @@ def classify_and_judge(
             verdict = judge_paper(title, abstract, initial_intent, model=model)
         except Exception as e:
             log.error("LLM judge error for %s: %s", doi, e)
-            return {"status": "error", "reason": "llm-error", "doi": doi, "detail": str(e)[:200]}
+            return {
+                "status": "error",
+                "reason": "llm-error",
+                "doi": doi,
+                "detail": str(e)[:200],
+            }
 
         # ── 4. Persist annotation ──────────────────────────────────────────
         if is_remote:
@@ -127,7 +134,12 @@ def classify_and_judge(
                 }
             except Exception as e:
                 log.error("Remote POST failed for %s: %s", doi, e)
-                return {"status": "error", "reason": "remote-post-failed", "doi": doi, "detail": str(e)[:200]}
+                return {
+                    "status": "error",
+                    "reason": "remote-post-failed",
+                    "doi": doi,
+                    "detail": str(e)[:200],
+                }
 
         annotation = Annotation(
             paper_doi=doi,
@@ -138,6 +150,7 @@ def classify_and_judge(
             is_flagged=verdict.is_flagged,
             flag_reason=verdict.flag_reason,
             comment=f"[{verdict.confidence.upper()} confidence] {verdict.rationale}",
+            model_version=MODEL_VERSION,
         )
         db.add(annotation)
         db.commit()
@@ -154,7 +167,12 @@ def classify_and_judge(
         if db is not None:
             db.rollback()
         log.exception("Unhandled error in classify_and_judge for %s", doi)
-        return {"status": "error", "reason": "unhandled", "doi": doi, "detail": str(e)[:200]}
+        return {
+            "status": "error",
+            "reason": "unhandled",
+            "doi": doi,
+            "detail": str(e)[:200],
+        }
     finally:
         if db is not None:
             db.close()

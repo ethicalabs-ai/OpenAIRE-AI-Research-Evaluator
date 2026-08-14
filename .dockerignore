@@ -1,18 +1,25 @@
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 .venv/
+**/.venv/
 .env
 venv
 .qwen
 .antigravitycli
+
+# Node
+node_modules/
+**/node_modules/
 
 # Data and Checkpoints
 data/
 checkpoints/
 *.bin
 *.pth
+*.sql.gz
 
 # WandB
 wandb/
@@ -38,6 +45,7 @@ temp/
 experiments/
 *.log
 *.egg-info/
+site/
 
 # Excluded for now
 .coverage
