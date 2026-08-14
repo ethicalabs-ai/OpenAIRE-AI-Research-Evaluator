@@ -31,7 +31,7 @@ from models import Annotation as DBAnnotation
 from models import PaperRecord
 from models import SavedPaper as DBSavedPaper
 from models import User as DBUser
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
 
@@ -57,19 +57,30 @@ def _resolve_version(version: str = "") -> str:
 def _version_scoped_papers(db: Session, version: str):
     """Base PaperRecord query restricted to ``version``.
 
-    A paper belongs to a round when it was imported during it, or when it
-    received an annotation during it (papers imported in an earlier round
-    that get re-annotated stay visible in both views).
+    A paper belongs to the round it was imported in. (Round-specific
+    annotations are matched via ``annotations.model_version`` when the
+    paper's annotations are aggregated per round.)
     """
-    annotated_in_round = select(DBAnnotation.paper_doi).where(
-        DBAnnotation.model_version == version
-    )
     return db.query(PaperRecord).filter(
         PaperRecord.source != "dataset",
-        or_(
-            PaperRecord.model_version == version,
-            PaperRecord.doi.in_(annotated_in_round),
-        ),
+        PaperRecord.model_version == version,
+    )
+
+
+def exists_round_annotation(paper_doi_expr, version: str):
+    """EXISTS subquery — has this paper an annotation cast in ``version``?
+
+    Indexed by ``ix_annotations_paper_doi_version``; used instead of
+    versioned joins/IN subqueries, which made Postgres sort all annotations
+    on disk per request.
+    """
+    return (
+        select(1)
+        .where(
+            DBAnnotation.paper_doi == paper_doi_expr,
+            DBAnnotation.model_version == version,
+        )
+        .exists()
     )
 
 
@@ -1191,20 +1202,33 @@ def list_papers(
     }
     order = sort_map.get(sort_by, PaperRecord.created_at.desc())
 
-    papers = (
-        base.outerjoin(
-            DBAnnotation,
-            and_(
-                PaperRecord.doi == DBAnnotation.paper_doi,
-                DBAnnotation.model_version == v,
-            ),
+    if sort_by in ("votes", "flagged"):
+        # Aggregate ordering requires joining the round's annotations; the
+        # annotations side is covered by ix_annotations_paper_doi_version.
+        papers = (
+            base.outerjoin(
+                DBAnnotation,
+                and_(
+                    PaperRecord.doi == DBAnnotation.paper_doi,
+                    DBAnnotation.model_version == v,
+                ),
+            )
+            .group_by(PaperRecord.doi)
+            .order_by(order)
+            .offset(offset)
+            .limit(limit)
+            .all()
         )
-        .group_by(PaperRecord.doi)
-        .order_by(order)
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+    else:
+        # Default path (recent/title): page through paper_records via its
+        # indexes, then aggregate per paper in Python. Joining + sorting all
+        # 200k+ annotations in SQL made the archive/catalog load ~60x slower.
+        papers = (
+            base.order_by(order)
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
     results = []
     for p in papers:
         round_annotations = [a for a in p.annotations if a.model_version == v]
@@ -1522,28 +1546,16 @@ def get_stats(version: str = "", db: Session = Depends(get_db)):
             if len(top) == 1 or (len(top) == 2 and top[0][1] > top[1][1]):
                 dist[top[0][0]] += 1
 
-        # Papers without round annotations — use initial_intent
+        # Papers without round annotations — use initial_intent.
+        # Anti-join via NOT EXISTS (the versioned outerjoin forced Postgres to
+        # sort all 200k+ annotations on disk per stats refresh).
         unannotated = (
             db.query(PaperRecord.initial_intent, func.count())
-            .outerjoin(
-                DBAnnotation,
-                and_(
-                    PaperRecord.doi == DBAnnotation.paper_doi,
-                    DBAnnotation.model_version == v,
-                ),
-            )
             .filter(
                 PaperRecord.source != "dataset",
-                DBAnnotation.id.is_(None),
+                PaperRecord.model_version == v,
                 PaperRecord.initial_intent.isnot(None),
-                or_(
-                    PaperRecord.model_version == v,
-                    PaperRecord.doi.in_(
-                        db.query(DBAnnotation.paper_doi).filter(
-                            DBAnnotation.model_version == v
-                        )
-                    ),
-                ),
+                ~exists_round_annotation(PaperRecord.doi, v),
             )
             .group_by(PaperRecord.initial_intent)
             .all()
