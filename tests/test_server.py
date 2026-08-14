@@ -234,6 +234,37 @@ def test_stats_flagged(temp_db, monkeypatch):
         db.close()
 
 
+def test_classify_min_chars_guard(monkeypatch):
+    """Default classify guard rejects <50-char abstracts; min_chars=1 accepts them
+    (the collab detail panel passes min_chars=1 for short-but-real abstracts)."""
+    from dataclasses import dataclass, field
+
+    from fastapi.testclient import TestClient
+
+    import server as _srv
+
+    @dataclass
+    class FakeResult:
+        label: str = "Applied"
+        probabilities: dict = field(default_factory=lambda: {"Applied": 0.9, "Methodology": 0.1})
+
+    monkeypatch.setattr(_srv, "classify_paper", lambda title, abstract: FakeResult())
+    client = TestClient(_srv.app)
+
+    short_abstract = "National Science Foundation's URExSRN;SES-1444755"  # 49 chars
+    assert len(short_abstract) < 50
+    payload = {"title": "T", "abstract": short_abstract}
+
+    # Default guard (free-text/streaming tabs) still rejects <50 chars
+    r = client.post("/api/classify/intent", json=payload)
+    assert r.status_code == 400
+
+    # Collab panel path accepts it and returns the prediction
+    r = client.post("/api/classify/intent?min_chars=1", json=payload)
+    assert r.status_code == 200
+    assert r.json()["label"] == "Applied"
+
+
 def test_stats_consensus(temp_db, monkeypatch):
     """Consensus distribution uses majority vote per paper."""
     monkeypatch.setattr("server._get_redis", lambda: None)

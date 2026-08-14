@@ -497,7 +497,10 @@ export default {
       isClassifying.value = true;
       livePrediction.value = null;
       try {
-        const res = await fetch("/api/classify/intent", {
+        // min_chars=1: the collab panel should classify short-but-real
+        // abstracts (e.g. grant numbers); the 50-char guard stays for the
+        // free-text/streaming tabs (default).
+        const res = await fetch("/api/classify/intent?min_chars=1", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

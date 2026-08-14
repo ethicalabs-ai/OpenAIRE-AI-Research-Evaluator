@@ -236,6 +236,7 @@ def post_annotation_remote(
     model: str,
     api_url: str,
     api_key: str,
+    initial_intent: str = "",
 ) -> str:
     """POST an annotation to a remote server. Returns 'saved', 'skipped', or 'error'."""
     url = api_url.rstrip("/") + "/api/annotations/judge"
@@ -243,7 +244,9 @@ def post_annotation_remote(
         "doi": paper["doi"],
         "title": paper["title"],
         "abstract": paper["abstract"],
-        "initial_intent": paper.get("initial_intent", "Methodology"),
+        # The locally computed Echo prediction — live-fetched papers carry no
+        # initial_intent, so without this every record stored "Methodology".
+        "initial_intent": initial_intent or paper.get("initial_intent", ""),
         "source": paper.get("source", "arxiv"),
         "proposed_label": verdict.proposed_label,
         "is_flagged": verdict.is_flagged,
@@ -358,7 +361,12 @@ def process_paper(
     # ── 4. Persist annotation ─────────────────────────────────────────────────
     if is_remote:
         status = post_annotation_remote(
-            paper, verdict, model, remote_url, remote_api_key
+            paper,
+            verdict,
+            model,
+            remote_url,
+            remote_api_key,
+            initial_intent=initial_intent,
         )
         if status == "saved":
             return True
