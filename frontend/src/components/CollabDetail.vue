@@ -67,6 +67,15 @@
         <div v-else-if="!selectedPaper.abstract" class="clf-empty">
           No abstract available — cannot classify.
         </div>
+        <div v-else-if="selectedPaper.initial_intent" class="clf-empty">
+          Live classification unavailable — stored prediction:
+          <strong :class="selectedPaper.initial_intent">{{
+            selectedPaper.initial_intent
+          }}</strong>
+        </div>
+        <div v-else class="clf-empty">
+          Classification unavailable for this record.
+        </div>
         <div v-if="!selectedPaper.is_external_pending" class="consensus-row">
           <span class="box-label">Community Consensus:</span>
           <span

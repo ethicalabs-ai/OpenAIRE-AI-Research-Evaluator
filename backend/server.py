@@ -651,12 +651,16 @@ def openaire_search(q: str):
 
 
 @app.post("/api/classify/intent")
-def classify_intent(req: ClassifyRequest):
+def classify_intent(req: ClassifyRequest, min_chars: int = 50):
     """Classify the research intent of a paper from its title and abstract.
 
     Returns the predicted label and per-class softmax probabilities.
     The model is loaded lazily on first call (~2-3 s) and cached in memory
     for subsequent requests.
+
+    ``min_chars`` guards the free-text/streaming tabs against junk input; the
+    collab detail panel passes a lower bound (1) so short-but-real abstracts
+    (e.g. grant numbers) still get a displayed prediction.
 
     Request body::
 
@@ -682,10 +686,10 @@ def classify_intent(req: ClassifyRequest):
         raise HTTPException(status_code=400, detail="'title' must not be empty.")
     if not abstract:
         raise HTTPException(status_code=400, detail="'abstract' must not be empty.")
-    if len(abstract) < 50:
+    if len(abstract) < min_chars:
         raise HTTPException(
             status_code=400,
-            detail="'abstract' is too short (<50 chars). Provide the full abstract.",
+            detail=f"'abstract' is too short (<{min_chars} chars). Provide the full abstract.",
         )
 
     try:

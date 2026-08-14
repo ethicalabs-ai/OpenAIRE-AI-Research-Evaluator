@@ -254,7 +254,7 @@ def test_process_paper_remote_calls_local_classifier(
     )
     monkeypatch.setattr(
         "judge_cli.post_annotation_remote",
-        lambda paper, verdict, model, url, key: "saved",
+        lambda paper, verdict, model, url, key, initial_intent="": "saved",
     )
 
     paper = {
@@ -278,6 +278,87 @@ def test_process_paper_remote_calls_local_classifier(
 
 
 # ── judge_batch tests ─────────────────────────────────────────────────────────
+
+
+def test_post_annotation_remote_sends_computed_initial_intent(
+    mock_judge_verdict, monkeypatch
+):
+    """Remote payload must carry the locally computed Echo prediction, never the
+    hardcoded 'Methodology' default for live-fetched papers."""
+    import judge_cli
+
+    captured = {}
+
+    class FakeResponse:
+        ok = True
+        status_code = 200
+
+        def json(self):
+            return {"status": "saved"}
+
+    def fake_post(url, json, headers, timeout):
+        captured["payload"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(judge_cli.requests, "post", fake_post)
+
+    paper = {
+        "doi": "10.1234/remote.1",
+        "title": "T",
+        "abstract": "a",
+        "source": "openaire",
+    }  # no initial_intent key — as fetched from OpenAIRE/arXiv
+    judge_cli.post_annotation_remote(
+        paper,
+        mock_judge_verdict,
+        "test-model",
+        "https://example.com",
+        "test-key",
+        initial_intent="Theoretical",
+    )
+    assert captured["payload"]["initial_intent"] == "Theoretical"
+
+
+def test_process_paper_remote_passes_computed_prediction(
+    temp_db, mock_judge_verdict, monkeypatch
+):
+    """process_paper sends the locally classified label as initial_intent."""
+    import judge_cli
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        judge_cli, "classify_paper", lambda title, abstract: SimpleNamespace(label="Theoretical")
+    )
+    monkeypatch.setattr(
+        judge_cli,
+        "judge_paper",
+        lambda title, abstract, prediction, model, timeout=300: mock_judge_verdict,
+    )
+
+    received = {}
+
+    def fake_post(paper, verdict, model, url, key, initial_intent=""):
+        received["intent"] = initial_intent
+        return "saved"
+
+    monkeypatch.setattr(judge_cli, "post_annotation_remote", fake_post)
+
+    paper = {
+        "doi": "10.1234/remote.2",
+        "title": "T",
+        "abstract": "A short abstract.",
+        "source": "openaire",
+    }
+    ok = judge_cli.process_paper(
+        paper,
+        "test-model",
+        dry_run=False,
+        db=None,
+        remote_url="https://example.com",
+        remote_api_key="test-key",
+    )
+    assert ok is True
+    assert received["intent"] == "Theoretical"
 
 
 def test_judge_batch_dedup_and_counts(monkeypatch):
