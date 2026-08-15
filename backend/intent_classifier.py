@@ -33,7 +33,9 @@ import torch
 log = logging.getLogger(__name__)
 
 # ── Default model path: Hugging Face repo ID or local checkpoint ──────────────
-_DEFAULT_CLF_PATH = "ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF"
+# Must match the Dockerfile ENV INTENT_CLF_PATH and .env.example — the host
+# CLI falls back here when INTENT_CLF_PATH is unset.
+_DEFAULT_CLF_PATH = "ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF"
 
 
 @dataclass
