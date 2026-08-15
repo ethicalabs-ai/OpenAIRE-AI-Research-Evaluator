@@ -936,3 +936,180 @@ arts literature digital archive metadata
 music information retrieval genre classification
 nuclear physics reactor neutron
 accelerator physics beam dynamics
+
+# ── v0.1.5 expansion — Review-heavy queries (weakest class, F1 0.611) ────────
+systematic review and meta-analysis
+scoping review research evidence synthesis
+literature review state of the art survey
+narrative review of research trends
+umbrella review overview of evidence
+systematic mapping study review
+bibliometric analysis citation networks review
+science mapping bibliometric review
+review of deep learning methods applications
+survey of neural network architectures
+systematic review of randomized controlled trials
+meta-analysis of intervention effects
+review of transformer-based language models
+survey on graph neural networks
+comparative review of optimization algorithms
+review of reinforcement learning applications
+critical review of experimental design
+evidence synthesis systematic review
+review of statistical methods in ecology
+survey of computer vision techniques
+state-of-the-art review of sensor networks
+review article overview of recent advances
+historical review of the field
+retrospective review of literature
+critical appraisal of evaluation methodology
+review of clinical prediction models
+systematic review of machine learning in healthcare
+meta-analysis of diagnostic accuracy
+review of data augmentation techniques
+survey on federated learning systems
+review of generative adversarial networks
+systematic review of telehealth interventions
+bibliometric analysis of research productivity
+mapping review of sustainability indicators
+narrative synthesis of qualitative studies
+review of sequence labeling methods
+survey of recommendation systems techniques
+review of time series forecasting models
+meta-review of systematic reviews
+review of uncertainty quantification methods
+systematic review of educational interventions
+survey of explainable AI techniques
+review of object detection benchmarks
+state of the art in natural language generation
+critical review of assessment frameworks
+review of feature selection methods
+systematic review of mobile health apps
+meta-analysis of treatment outcomes
+review of physics-informed neural networks
+survey of multimodal learning approaches
+review of causal inference methods
+systematic review of climate adaptation strategies
+bibliometric review of research collaboration
+review of few-shot learning techniques
+survey of knowledge distillation methods
+review of differential privacy mechanisms
+systematic review of digital twins
+review of model compression techniques
+meta-analysis of effect sizes in psychology
+survey of anomaly detection methods
+review of sequence-to-sequence models
+systematic review of robotic surgery outcomes
+review of transfer learning approaches
+state-of-the-art survey of text mining
+review of sentiment analysis techniques
+systematic review of energy storage technologies
+critical review of bioinformatics pipelines
+survey of zero-shot learning methods
+review of contrastive learning frameworks
+systematic review of environmental impact assessment
+review of evaluation metrics for generation
+meta-analysis of behavioral interventions
+survey of quantization techniques in NLP
+review of simulation methods in physics
+umbrella systematic review of meta-analyses
+
+# ── v0.1.5 expansion — Unclassifiable-targeting queries (F1 0.714) ───────────
+book review publication notice
+editorial note announcement
+letter to the editor correspondence
+meeting abstract conference report
+corrigendum correction notice
+erratum publisher correction
+retraction notice withdrawn article
+preface foreword introduction
+guest editorial special issue introduction
+obituary tribute biographical note
+news brief research highlight
+white paper policy brief
+technical note short communication
+data note dataset description short
+software note release announcement
+conference proceedings abstract only
+poster abstract presentation summary
+grant announcement funding call
+fellowship announcement call for applications
+position statement consensus opinion
+commentary discussion response article
+rejoinder reply to commentary
+in memoriam remembrance note
+acknowledgments funding statement
+table of contents issue listing
+author index volume index
+proceedings of the international conference
+abstracts of the annual meeting
+supplementary material additional file
+supporting information appendix
+non peer reviewed preprint notice
+preprint announcement version release
+exhibition review art critique
+performance review theater music
+exhibition catalogue gallery guide
+interview with researcher profile
+podcast transcript discussion
+report of the workshop proceedings
+summary of the roundtable discussion
+announcement of the award winner
+biographical sketch author profile
+dissertation abstract short summary
+thesis abstract brief description
+statistical report brief data
+progress report update note
+
+# ── v0.1.5 expansion — Methodology queries ────────────────────────────────────
+novel architecture for sequence modeling
+attention mechanism variant transformer
+new optimization algorithm convergence
+adaptive learning rate schedule method
+hierarchical representation learning framework
+differentiable programming scientific computing
+graph attention network variant
+mixture of experts routing method
+neural ordinary differential equations solver
+self-supervised pretraining objective design
+active learning acquisition function
+bayesian neural network variational inference
+evolutionary algorithm multiobjective optimization
+symbolic regression genetic programming
+knowledge distillation teacher student framework
+
+# ── v0.1.5 expansion — Dataset queries ────────────────────────────────────────
+new benchmark dataset for classification
+annotated corpus construction methodology
+large scale dataset collection protocol
+synthetic data generation benchmark
+evaluation suite standard benchmark
+image segmentation dataset annotation
+multilingual corpus parallel dataset
+time series benchmark repository
+knowledge graph dataset construction
+speech recognition dataset collection
+medical imaging dataset curation
+crowdsourced dataset quality control
+
+# ── v0.1.5 expansion — Applied queries ────────────────────────────────────────
+deep learning application in medical diagnosis
+machine learning for renewable energy forecasting
+natural language processing for legal documents
+computer vision for autonomous driving
+graph neural networks for drug discovery
+transformer models for protein structure
+reinforcement learning for robotics control
+time series forecasting for financial markets
+remote sensing classification for agriculture
+NLP application in education technology
+
+# ── v0.1.5 expansion — Theoretical queries ────────────────────────────────────
+formal proof of convergence guarantees
+theoretical analysis of generalization bounds
+information-theoretic limits of learning
+complexity analysis of approximation algorithms
+mathematical framework for uncertainty quantification
+axiomatic characterization of fairness metrics
+statistical theory of extreme values
+game-theoretic analysis of multiagent systems
