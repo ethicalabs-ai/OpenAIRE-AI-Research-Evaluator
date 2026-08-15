@@ -478,6 +478,52 @@ def test_process_paper_remote_catalog_bypasses_exist_check(
     assert check_called == []
 
 
+def test_run_catalog_remote_summary_no_crash(monkeypatch):
+    """Catalog remote runs must reach the final summary — total_duplicates /
+    total_errors are initialized for non-live sources too (regression:
+    UnboundLocalError after --source catalog completed)."""
+    from types import SimpleNamespace
+
+    import judge_cli
+
+    args = SimpleNamespace(
+        source="catalog",
+        n=3,
+        delay=0.0,
+        dry_run=False,
+        model="test-model",
+        sort="default",
+        api_url="https://example.com",
+        api_key="test-key",
+        remote=True,
+        force=False,
+        async_mode=False,
+        llm_url="",
+        llm_key="",
+        version="",
+    )
+
+    def fake_fetch(api_url, api_key, model, limit, *, force=False, version=""):
+        return [
+            {
+                "doi": f"10.1234/cat.{i}",
+                "title": "T",
+                "abstract": "A",
+                "source": "catalog",
+            }
+            for i in range(3)
+        ]
+
+    monkeypatch.setattr(judge_cli, "fetch_remote_catalog", fake_fetch)
+    monkeypatch.setattr(
+        judge_cli,
+        "process_paper",
+        lambda paper, model, dry_run, db, **kw: True,
+    )
+
+    judge_cli.run(args)  # must not raise UnboundLocalError
+
+
 def test_judge_batch_dedup_and_counts(monkeypatch):
     """Duplicate DOIs within a run are skipped; success/failure counted."""
     import judge_cli

@@ -735,3 +735,67 @@ def test_export_version_filter(temp_db, tmp_path, monkeypatch):
     assert records[0]["doi"] == "10.1234/exp.new"
     assert records[0]["model_prediction"] == "Review"
     assert records[0]["version"] == "v0.1.4"
+
+
+# ── backfill_initial_intent tests ─────────────────────────────────────────────
+
+
+def test_backfill_initial_intent(temp_db, monkeypatch):
+    """Re-classifies a round's papers and refreshes initial_intent with the
+    current model — dry run writes nothing, other rounds untouched."""
+    import backfill_initial_intent as bf
+    from dataclasses import dataclass
+
+    from models import PaperRecord
+
+    @dataclass
+    class FakeResult:
+        label: str = "Unclassifiable"
+        probabilities: dict = None
+
+    monkeypatch.setattr(bf, "classify_paper", lambda title, abstract: FakeResult())
+
+    from database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        db.add_all([
+            PaperRecord(doi="10.1234/bf.1", title="T1", abstract="A",
+                        initial_intent="Methodology", source="openaire",
+                        model_version="v0.1.4"),
+            PaperRecord(doi="10.1234/bf.2", title="T2", abstract="A",
+                        initial_intent="Review", source="openaire",
+                        model_version="v0.1.4"),
+            PaperRecord(doi="10.1234/bf.3", title="T3", abstract="A",
+                        initial_intent="Dataset", source="openaire",
+                        model_version="v0.1.3"),  # other round — untouched
+        ])
+        db.commit()
+    finally:
+        db.close()
+
+    # Dry run: reports only, no writes
+    monkeypatch.setattr(sys, "argv", ["backfill", "--version", "v0.1.4", "--dry-run"])
+    bf.main()
+
+    db = SessionLocal()
+    try:
+        p1 = db.query(PaperRecord).filter(PaperRecord.doi == "10.1234/bf.1").first()
+        assert p1.initial_intent == "Methodology"  # unchanged in dry run
+    finally:
+        db.close()
+
+    # Real run: updates the round's papers only
+    monkeypatch.setattr(sys, "argv", ["backfill", "--version", "v0.1.4"])
+    bf.main()
+
+    db = SessionLocal()
+    try:
+        p1 = db.query(PaperRecord).filter(PaperRecord.doi == "10.1234/bf.1").first()
+        p2 = db.query(PaperRecord).filter(PaperRecord.doi == "10.1234/bf.2").first()
+        p3 = db.query(PaperRecord).filter(PaperRecord.doi == "10.1234/bf.3").first()
+        assert p1.initial_intent == "Unclassifiable"  # refreshed
+        assert p2.initial_intent == "Unclassifiable"
+        assert p3.initial_intent == "Dataset"  # other round untouched
+    finally:
+        db.close()

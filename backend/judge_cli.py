@@ -516,6 +516,7 @@ def fetch_remote_catalog(
     limit: int,
     *,
     force: bool = False,
+    version: str = "",
 ) -> list[dict]:
     """Fetch papers from the remote server, excluding those already judged by model.
 
@@ -530,7 +531,7 @@ def fetch_remote_catalog(
             "limit": page_size,
             "offset": offset,
             "sort_by": "recent",
-            "version": MODEL_VERSION,  # judge papers of the active round only
+            "version": version or MODEL_VERSION,  # round to judge (default: active)
         }
         if not force:
             params["exclude_model"] = model
@@ -603,6 +604,7 @@ def run(args: argparse.Namespace) -> None:
     is_remote = bool(getattr(args, "remote", False))
     sort_fresh = getattr(args, "sort", "default") == "fresh"
     force = getattr(args, "force", False)
+    round_version = getattr(args, "version", "") or MODEL_VERSION
 
     if is_remote and not remote_url:
         log.error("--api-url (or JUDGE_API_URL env var) is required with --remote")
@@ -658,7 +660,12 @@ def run(args: argparse.Namespace) -> None:
             if is_remote:
                 # Remote catalog: fetch papers from the remote API
                 papers = fetch_remote_catalog(
-                    remote_url, remote_key, model, args.n, force=force
+                    remote_url,
+                    remote_key,
+                    model,
+                    args.n,
+                    force=force,
+                    version=round_version,
                 )
                 target = args.n if args.n > 0 else len(papers)
                 for paper in papers:
@@ -767,6 +774,8 @@ def run(args: argparse.Namespace) -> None:
     # ── Sync mode ─────────────────────────────────────────────────────────
     db = SessionLocal() if not is_remote else None
     judged = 0
+    total_duplicates = 0
+    total_errors = 0
 
     try:
         if args.source == "dataset":
@@ -798,7 +807,12 @@ def run(args: argparse.Namespace) -> None:
             # ── Catalog mode ────────────────────────────────────────────────
             if is_remote:
                 papers = fetch_remote_catalog(
-                    remote_url, remote_key, model, args.n, force=force
+                    remote_url,
+                    remote_key,
+                    model,
+                    args.n,
+                    force=force,
+                    version=round_version,
                 )
                 target = args.n if args.n > 0 else len(papers)
                 for paper in papers:
@@ -1035,6 +1049,13 @@ def main() -> None:
         action="store_true",
         default=False,
         help="Re-judge papers even if already annotated by this model.",
+    )
+    parser.add_argument(
+        "--version",
+        default="",
+        help="Round to judge for --source catalog (default: the configured "
+        "MODEL_VERSION). E.g. --version v0.1.4 to target the current round, "
+        "or an older round to judge its papers with a new model.",
     )
     args = parser.parse_args()
     # Apply device before the classifier singleton loads
