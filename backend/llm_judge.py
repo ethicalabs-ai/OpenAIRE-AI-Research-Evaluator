@@ -271,7 +271,9 @@ def judge_paper(
         # Local llama.cpp servers accept any value.
         **{"temperature": 0.1} if is_local else {},
         # max_tokens vs max_completion_tokens: OpenAI reasoning models use the latter.
-        **{"max_tokens": 2048} if is_local else {"max_completion_tokens": 2048},
+        # Some newer judges emit long rationales and truncate before closing the
+        # JSON — 2048 tokens caused "Unterminated string" parse failures.
+        **{"max_tokens": 4096} if is_local else {"max_completion_tokens": 4096},
         extra_body=extra or None,
     )
 
