@@ -270,6 +270,10 @@ def judge_paper(
         # Reasoning models (o1, o3, gpt-5.5+) only accept temperature=1 (default) — omit it.
         # Local llama.cpp servers accept any value.
         **{"temperature": 0.1} if is_local else {},
+        # Some judges (e.g. Nemotron-3.5-Lightning) degenerate into repetitive
+        # rationales that blow the token budget mid-JSON — repeat_penalty keeps
+        # them concise (llama.cpp extension, local servers only).
+        **{"repeat_penalty": 1.15} if is_local else {},
         # max_tokens vs max_completion_tokens: OpenAI reasoning models use the latter.
         # Some newer judges emit long rationales and truncate before closing the
         # JSON — 2048 tokens caused "Unterminated string" parse failures.
