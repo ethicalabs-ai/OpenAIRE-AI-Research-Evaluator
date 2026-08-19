@@ -11,7 +11,7 @@ import telemetry
 app = Flask(__name__, static_folder="../frontend/dist", static_url_path="")
 CORS(app)
 
-MODEL_ID = "ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF"
+MODEL_ID = "ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF"
 
 # Global model/tokenizer
 tokenizer = None
