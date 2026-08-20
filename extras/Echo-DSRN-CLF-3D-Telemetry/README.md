@@ -20,8 +20,8 @@ OpenAIRE Graph API** (random paper, or by DOI) and watch the classifier's
 neural dynamics as it reads the title + abstract.
 
 ### 🔗 Model
-- **Research-intent classifier**: [ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF)
-  (gated — set `HF_TOKEN` to download). Loaded through the AutoModel family
+- **Research-intent classifier**: [ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF](https://huggingface.co/ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF)
+  (public repo — no token needed). Loaded through the AutoModel family
   with `trust_remote_code=True`.
 
 ---
@@ -59,12 +59,11 @@ neural dynamics as it reads the title + abstract.
 
 ## 🚀 Running
 
-The model repo is **gated**: export a Hugging Face token that has access to
-`ethicalabs/Echo-DSRN-v0.1.3-Research-Intent-CLF`.
+The model repo is **public** — no Hugging Face token required.
 
 ```bash
 docker build -t echo-clf-telemetry .
-docker run -p 7860:7860 -e HF_TOKEN=hf_... echo-clf-telemetry
+docker run -p 7860:7860 echo-clf-telemetry
 ```
 
 Locally (with your own venv):
@@ -82,7 +81,6 @@ Then open http://localhost:7860.
 
 | Env var | Default | Purpose |
 | :--- | :--- | :--- |
-| `HF_TOKEN` | — | HF token for the gated classifier repo |
 | `OPENAIRE_TOKEN` | — | Optional OpenAIRE API token (Bearer header) to raise rate limits; not needed for basic search |
 | `VITE_FOOTER_TEXT` | `OpenAIRE Graph API data: CC-BY 4.0.` | Footer attribution line, inlined at frontend build time (`docker build --build-arg VITE_FOOTER_TEXT="..."`) |
 | `ECHO_MAX_TRACE_TOKENS` | `1024` | Max tokens rendered in the per-token trace |

@@ -246,11 +246,19 @@ def judge_paper(
         "Return your verdict as JSON."
     )
 
-    # chat_template_kwargs / max_tokens / temperature are llama.cpp extensions.
-    # Cloud APIs (OpenAI, Gemini, Anthropic, …) reject them with 400 errors.
+    # chat_template_kwargs / repeat_penalty are llama.cpp server extensions —
+    # the OpenAI client only forwards them via extra_body. Cloud APIs
+    # (OpenAI, Gemini, Anthropic, …) reject them with 400 errors.
     is_local = _is_local_server(LLM_BASE_URL or "")
     extra: dict = (
-        {"chat_template_kwargs": {"enable_thinking": False}} if is_local else {}
+        {
+            "chat_template_kwargs": {"enable_thinking": False},
+            # Some judges (e.g. Nemotron-3.5-Lightning) degenerate into
+            # repetitive rationales that blow the token budget mid-JSON.
+            "repeat_penalty": 1.15,
+        }
+        if is_local
+        else {}
     )
 
     response = client.chat.completions.create(
@@ -271,7 +279,9 @@ def judge_paper(
         # Local llama.cpp servers accept any value.
         **{"temperature": 0.1} if is_local else {},
         # max_tokens vs max_completion_tokens: OpenAI reasoning models use the latter.
-        **{"max_tokens": 2048} if is_local else {"max_completion_tokens": 2048},
+        # Some newer judges emit long rationales and truncate before closing the
+        # JSON — 2048 tokens caused "Unterminated string" parse failures.
+        **{"max_tokens": 4096} if is_local else {"max_completion_tokens": 4096},
         extra_body=extra or None,
     )
 
