@@ -1,7 +1,6 @@
 import os
 import sys
 
-
 # Ensure backend directory is in path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend")))
 
@@ -69,10 +68,9 @@ def test_classify_and_judge_already_judged(
     assert result2["reason"] == "already-judged"
 
 
-def test_classify_and_judge_llm_error(
-    temp_db, mock_classifier, monkeypatch
-):
+def test_classify_and_judge_llm_error(temp_db, mock_classifier, monkeypatch):
     """When the LLM judge raises, the task should return an error status."""
+
     def _raise_llm_error(*a, **kw):
         raise ValueError("LLM timeout")
 
@@ -162,7 +160,13 @@ def test_classify_and_judge_with_initial_intent(
 
 class FakeMCPResult:
     label = "Methodology"
-    probabilities = {"Methodology": 0.87, "Dataset": 0.03, "Review": 0.02, "Applied": 0.06, "Theoretical": 0.02}
+    probabilities = {
+        "Methodology": 0.87,
+        "Dataset": 0.03,
+        "Review": 0.02,
+        "Applied": 0.06,
+        "Theoretical": 0.02,
+    }
 
 
 def test_classify_mcp_returns_label_and_probabilities(monkeypatch):
@@ -190,7 +194,6 @@ def test_load_search_queries_from_file(tmp_path):
     topics_file = tmp_path / "topics.txt"
     topics_file.write_text("query one\nquery two\n\n# comment\nquery three\n")
 
-
     # Patch the candidate paths to point at our temp file
     import judge_cli
 
@@ -198,7 +201,9 @@ def test_load_search_queries_from_file(tmp_path):
 
     def _tmp_loader():
         with open(topics_file) as f:
-            return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+            return [
+                line.strip() for line in f if line.strip() and not line.startswith("#")
+            ]
 
     judge_cli._load_search_queries = _tmp_loader
     result = judge_cli._load_search_queries()
@@ -265,7 +270,7 @@ def test_process_paper_remote_calls_local_classifier(
         "source": "catalog",
     }
 
-    result = judge_cli.process_paper(
+    judge_cli.process_paper(
         paper,
         "test-model",
         dry_run=False,
@@ -323,11 +328,14 @@ def test_process_paper_remote_passes_computed_prediction(
     temp_db, mock_judge_verdict, monkeypatch
 ):
     """process_paper sends the locally classified label as initial_intent."""
-    import judge_cli
     from types import SimpleNamespace
 
+    import judge_cli
+
     monkeypatch.setattr(
-        judge_cli, "classify_paper", lambda title, abstract: SimpleNamespace(label="Theoretical")
+        judge_cli,
+        "classify_paper",
+        lambda title, abstract: SimpleNamespace(label="Theoretical"),
     )
     monkeypatch.setattr(
         judge_cli,
@@ -393,8 +401,9 @@ def test_process_paper_remote_judges_new_paper(
     temp_db, mock_judge_verdict, monkeypatch
 ):
     """A paper not yet in the remote catalog gets judged normally."""
-    import judge_cli
     from types import SimpleNamespace
+
+    import judge_cli
 
     monkeypatch.setattr(judge_cli, "_remote_paper_exists", lambda doi, url: False)
     monkeypatch.setattr(
@@ -438,8 +447,9 @@ def test_process_paper_remote_catalog_bypasses_exist_check(
 ):
     """Catalog source (skip_catalogued=False) must not run the exists check —
     exclude_model already filters judged papers."""
-    import judge_cli
     from types import SimpleNamespace
+
+    import judge_cli
 
     check_called = []
     monkeypatch.setattr(
@@ -576,3 +586,138 @@ def test_judge_batch_respects_target(monkeypatch):
 
     assert newly == 2
     assert len(calls) == 2  # stopped after reaching the target
+
+
+# ── live-source run() discovery tests ─────────────────────────────────────────
+
+
+def _live_source_args(**overrides):
+    """Minimal args namespace for a remote openaire run (no local DB needed)."""
+    from types import SimpleNamespace
+
+    defaults = {
+        "source": "openaire",
+        "n": 100,
+        "delay": 0.0,
+        "dry_run": True,
+        "model": "test-model",
+        "sort": "default",
+        "api_url": "https://example.com",
+        "api_key": "test-key",
+        "remote": True,
+        "force": False,
+        "async_mode": False,
+        "llm_url": "",
+        "llm_key": "",
+        "version": "",
+        "no_early_stop": False,
+        "no_shuffle": False,
+    }
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)
+
+
+def test_run_live_source_stops_after_three_empty_pages(monkeypatch):
+    """Default sync run stops after 3 consecutive pages with no new papers."""
+    import judge_cli
+
+    monkeypatch.setattr(judge_cli, "SEARCH_QUERIES", ["query a", "query b"])
+
+    fetch_calls = []
+
+    def fake_fetch(query, max_results=25, *, sort_fresh=False, page=1):
+        fetch_calls.append((query, page))
+        return [
+            {
+                "doi": f"10.1234/{query[6]}.{page}",
+                "title": "T",
+                "abstract": "A",
+                "source": "openaire",
+            }
+        ]
+
+    monkeypatch.setattr(judge_cli, "fetch_openaire", fake_fetch)
+    monkeypatch.setattr(judge_cli, "process_paper", lambda *a, **k: False)
+
+    judge_cli.run(_live_source_args(no_shuffle=True))
+
+    # Query 'a' pages 1-3 yield nothing -> early stop; query 'b' never starts.
+    assert fetch_calls == [("query a", 1), ("query a", 2), ("query a", 3)]
+
+
+def test_run_live_source_no_early_stop_pages_all_queries(monkeypatch):
+    """--no-early-stop keeps paging past empty pages to reach more topics."""
+    import judge_cli
+
+    monkeypatch.setattr(judge_cli, "SEARCH_QUERIES", ["query a", "query b"])
+
+    fetch_calls = []
+
+    def fake_fetch(query, max_results=25, *, sort_fresh=False, page=1):
+        fetch_calls.append((query, page))
+        return [
+            {
+                "doi": f"10.1234/{query[6]}.{page}",
+                "title": "T",
+                "abstract": "A",
+                "source": "openaire",
+            }
+        ]
+
+    monkeypatch.setattr(judge_cli, "fetch_openaire", fake_fetch)
+    monkeypatch.setattr(judge_cli, "process_paper", lambda *a, **k: False)
+
+    judge_cli.run(_live_source_args(no_early_stop=True, no_shuffle=True))
+
+    # Both queries paged to the max (5 pages each) despite zero progress.
+    assert fetch_calls == [("query a", p) for p in range(1, 6)] + [
+        ("query b", p) for p in range(1, 6)
+    ]
+
+
+def test_run_live_source_no_shuffle_preserves_order(monkeypatch):
+    """--no-shuffle processes topics top-to-bottom and papers in API order."""
+    import judge_cli
+
+    monkeypatch.setattr(judge_cli, "SEARCH_QUERIES", ["query a", "query b", "query c"])
+
+    seen_queries = []
+    processed_dois = []
+
+    def fake_fetch(query, max_results=25, *, sort_fresh=False, page=1):
+        if page >= 2:
+            return []
+        seen_queries.append(query)
+        return [
+            {
+                "doi": f"10.1234/{query[6]}.1",
+                "title": "T1",
+                "abstract": "A",
+                "source": "openaire",
+            },
+            {
+                "doi": f"10.1234/{query[6]}.2",
+                "title": "T2",
+                "abstract": "A",
+                "source": "openaire",
+            },
+        ]
+
+    def fake_process(paper, model, dry_run, db, **kwargs):
+        processed_dois.append(paper["doi"])
+        return False
+
+    monkeypatch.setattr(judge_cli, "fetch_openaire", fake_fetch)
+    monkeypatch.setattr(judge_cli, "process_paper", fake_process)
+
+    judge_cli.run(_live_source_args(no_early_stop=True, no_shuffle=True))
+
+    assert seen_queries == ["query a", "query b", "query c"]
+    assert processed_dois == [
+        "10.1234/a.1",
+        "10.1234/a.2",
+        "10.1234/b.1",
+        "10.1234/b.2",
+        "10.1234/c.1",
+        "10.1234/c.2",
+    ]

@@ -17,6 +17,11 @@ uv run python backend/judge_cli.py --source openaire --n 100 \\
 
 # Dry-run: classify + judge but skip DB write
 uv run python backend/judge_cli.py --source arxiv --n 10 --dry-run
+
+# Topic discovery: page through every query top-to-bottom, never stopping
+# early on empty pages (new papers may appear past already-catalogued ones)
+uv run python backend/judge_cli.py --source openaire --n 5000 --remote \\
+    --no-early-stop --no-shuffle
 """
 
 from __future__ import annotations
@@ -30,12 +35,8 @@ import xml.etree.ElementTree as ET  # noqa: E402
 from pathlib import Path
 
 import requests  # noqa: E402
-from config import (
-    API_KEY,
-    JUDGE_API_URL,  # noqa: E402
-    LLM_JUDGE_DEFAULT_MODEL,
-    MODEL_VERSION,
-)
+from config import JUDGE_API_URL  # noqa: E402
+from config import API_KEY, LLM_JUDGE_DEFAULT_MODEL, MODEL_VERSION
 from database import SessionLocal  # noqa: E402
 from intent_classifier import classify_paper  # noqa: E402
 from llm_judge import JudgeVerdict, judge_paper  # noqa: E402
@@ -605,6 +606,8 @@ def run(args: argparse.Namespace) -> None:
     sort_fresh = getattr(args, "sort", "default") == "fresh"
     force = getattr(args, "force", False)
     round_version = getattr(args, "version", "") or MODEL_VERSION
+    no_early_stop = getattr(args, "no_early_stop", False)
+    no_shuffle = getattr(args, "no_shuffle", False)
 
     if is_remote and not remote_url:
         log.error("--api-url (or JUDGE_API_URL env var) is required with --remote")
@@ -621,6 +624,10 @@ def run(args: argparse.Namespace) -> None:
     log.info(f"Delay  : {args.delay}s between dispatches")
     if args.source == "openaire":
         log.info(f"Sort   : {args.sort}")
+    if no_shuffle:
+        log.info("Shuffle: off (top-to-bottom topic order)")
+    if no_early_stop:
+        log.info("Early stop: disabled")
     if is_remote:
         log.info(f"Remote : {remote_url}")
     if not getattr(args, "async_mode", False):
@@ -728,7 +735,8 @@ def run(args: argparse.Namespace) -> None:
         else:
             fetcher = fetch_arxiv if args.source == "arxiv" else fetch_openaire
             queries = list(SEARCH_QUERIES)
-            random.shuffle(queries)
+            if not no_shuffle:
+                random.shuffle(queries)
             for query in queries:
                 if dispatched >= args.n:
                     break
@@ -749,7 +757,8 @@ def run(args: argparse.Namespace) -> None:
                         )
                     if not papers:
                         break
-                    random.shuffle(papers)
+                    if not no_shuffle:
+                        random.shuffle(papers)
                     for paper in papers:
                         if dispatched >= args.n:
                             break
@@ -880,7 +889,8 @@ def run(args: argparse.Namespace) -> None:
             # ── Live source mode (arxiv / openaire) ─────────────────────────
             fetcher = fetch_arxiv if args.source == "arxiv" else fetch_openaire
             queries = list(SEARCH_QUERIES)
-            random.shuffle(queries)
+            if not no_shuffle:
+                random.shuffle(queries)
             seen: set[str] = set()
             total_duplicates = 0
             total_errors = 0
@@ -906,7 +916,8 @@ def run(args: argparse.Namespace) -> None:
                         )
                     if not papers:
                         break
-                    random.shuffle(papers)
+                    if not no_shuffle:
+                        random.shuffle(papers)
                     fresh, duplicates, errors = judge_batch(
                         papers,
                         model,
@@ -930,7 +941,7 @@ def run(args: argparse.Namespace) -> None:
                             f"  (page yielded no new papers — {duplicates} duplicates, "
                             f"{errors} errors)"
                         )
-                        if consecutive_no_progress >= 3:
+                        if consecutive_no_progress >= 3 and not no_early_stop:
                             log.warning(
                                 "  ⚠ 3 consecutive pages with no new papers — stopping "
                                 "early. Papers exhausted or the LLM/judge server is "
@@ -1043,6 +1054,22 @@ def main() -> None:
         choices=["default", "fresh"],
         default="fresh",
         help="Sort order for OpenAIRE paper discovery: relevance or dateofcollection desc. Only applies to --source openaire.",
+    )
+    parser.add_argument(
+        "--no-early-stop",
+        action="store_true",
+        default=False,
+        help="Keep paging through queries even after 3 consecutive pages yield "
+        "no new papers. Useful for discovery runs where already-catalogued "
+        "papers fill the early pages (default: stop early).",
+    )
+    parser.add_argument(
+        "--no-shuffle",
+        action="store_true",
+        default=False,
+        help="Process topics top-to-bottom in topics.txt order and papers in "
+        "API order instead of randomizing (default: shuffle both). "
+        "Applies to live sources (arxiv/openaire).",
     )
     parser.add_argument(
         "--force",
