@@ -2,6 +2,29 @@
 
 A multi-model LLM-as-Judge pipeline that builds annotation datasets to train Echo-DSRN intent classifiers — entry for the [OpenAIRE AI Hackathon 2026](https://innovation.openaire.eu/component/content/article/openaire-ai-hackathon.html), co-organised by OpenAIRE and Alien Intelligence.
 
+[![OpenAIRE Graph Evaluator](https://img.youtube.com/vi/9LHmmzLK3zs/0.jpg)](https://www.youtube.com/watch?v=9LHmmzLK3zs)
+
+[**▶️ Watch the Video**](https://www.youtube.com/watch?v=9LHmmzLK3zs)
+
+[**🔴 Collab Hub → openaire-2026.ethicalabs.ai**](https://openaire-2026.ethicalabs.ai/collab)
+
+The goal is to save researchers hundreds of hours spent manually sorting datasets, methodologies, and reviews, while creating a self-improving pipeline to generate datasets for training future classifiers!
+
+We built a custom model, [Echo-DSRN](https://github.com/ethicalabs-ai/Echo-DSRN), a hybrid recurrent architecture designed for resource-constrained tasks. It features an internal surprise gate and decouples computation into a fast GRU, sliding-window attention, and a gated slow state.
+
+It comes in 4 variants:
+- Hybrid RNN: Lightweight generation and speculative drafting.
+- Transformers Hybrid: DSRN memory blocks injected into backbones like Qwen 2.5.
+- Embedding: Dense sentence embeddings compatible with sentence-transformers.
+- Classifier: The specialized engine powering our hackathon submission!
+
+---
+
+Links:
+- Collab Hub: https://openaire-2026.ethicalabs.ai/collab
+- GitHub: https://github.com/ethicalabs-ai/Echo-DSRN 
+- HF Hackathon Collection: https://huggingface.co/collections/ethicalabs/openaire-ai-hackathon-2026
+
 ---
 
 ## Quick Start — Docker Compose
