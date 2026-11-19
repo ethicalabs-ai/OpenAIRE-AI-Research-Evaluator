@@ -1,8 +1,8 @@
 import datetime
 import os
 
+import jwt
 from fastapi import HTTPException, Request
-from jose import JWTError, jwt
 
 # Load .env early — this module is imported first by server.py
 try:
@@ -56,7 +56,7 @@ def get_current_user(request: Request):
         if user_id is None:
             return None
         return {"id": user_id, "name": name}
-    except JWTError:
+    except jwt.InvalidTokenError:
         return None
 
 

@@ -17,10 +17,15 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Create virtual environment
-        run: uv venv
+        run: uv venv --python 3.12
 
       - name: Install runtime deps
-        run: uv pip install -r requirements.txt
+        run: |
+          uv pip install \
+            --index-strategy unsafe-best-match \
+            --index-url https://download.pytorch.org/whl/cpu \
+            --extra-index-url https://pypi.org/simple \
+            --require-hashes -r requirements.lock
 
       - name: Install test deps
         run: uv pip install pytest pytest-cov

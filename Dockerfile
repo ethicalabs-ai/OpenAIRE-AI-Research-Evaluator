@@ -1,36 +1,93 @@
-# Use a lightweight Python base
-FROM python:3.10-slim
+# syntax=docker/dockerfile:1.7
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV DEBIAN_FRONTEND=noninteractive
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1 — frontend bundle
+#
+# Node, npm and every package they drag in (esbuild, vite, postcss, ...) stay in
+# this stage; only frontend/dist is copied into the runtime image.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM node:22-slim AS frontend
+
+WORKDIR /build
+
+# HuggingFace datasets collection URL (injected at build time for the UI)
+ARG VITE_HF_DATASETS_URL="https://huggingface.co/collections/ethicalabs/openaire-ai-hackathon-2026"
+ENV VITE_HF_DATASETS_URL=$VITE_HF_DATASETS_URL
+
+COPY frontend/package.json ./
+RUN npm install --no-audit --no-fund
+
+COPY frontend/ ./
+RUN npm run build
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2 — Python dependencies in a self-contained venv
+#
+# Compilers, git and the uv binary live here only; the runtime gets /opt/venv.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON_DOWNLOADS=never
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-# Install system dependencies & Node.js for Vite
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    nodejs \
-    npm \
-    && rm -rf /var/lib/apt/lists/*
+RUN uv venv /opt/venv --python 3.12
 
-# Install uv for fast dependency resolution globally
-RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/bin" sh
-
-# HuggingFace cache location (baked into image)
-ENV HF_HOME=/app/hf_cache
-
-# Copy only requirements to leverage Docker cache
-COPY requirements.txt .
-RUN uv pip install --system -r requirements.txt
+# Install from the hash-pinned lock so the runtime set is reproducible and
+# auditable (`make lock` regenerates it). The +cpu local version of torch only
+# exists on PyTorch's CPU index, so both indexes are passed explicitly.
+COPY requirements.txt requirements.lock ./
+RUN uv pip install --python /opt/venv/bin/python \
+    --index-strategy unsafe-best-match \
+    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://pypi.org/simple \
+    --require-hashes -r requirements.lock
 
 # Install the Echo-DSRN library without its training/eval dependency bloat
 # (lm-eval, trl, wandb, sentence-transformers are declared by the upstream
 # repo but unused at inference time — its __init__ only imports transformers).
-RUN uv pip install --system --no-deps "git+https://github.com/ethicalabs-ai/Echo-DSRN.git"
+RUN uv pip install --python /opt/venv/bin/python --no-deps \
+    "git+https://github.com/ethicalabs-ai/Echo-DSRN.git"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 3 — runtime
+# ─────────────────────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    HF_HOME=/app/hf_cache \
+    VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+# Pull the current Debian security updates over whatever the base tag shipped,
+# then add only what torch needs at runtime (libgomp for OpenMP, libstdc++).
+RUN apt-get update \
+    && apt-get -y upgrade \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        libgomp1 \
+        libstdc++6 \
+    && apt-get -y clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /opt/venv /opt/venv
+
+WORKDIR /app
+
+COPY . .
+COPY --from=frontend /build/dist ./frontend/dist
 
 # Pre-download the Echo-DSRN intent classifier model (avoids runtime HF download)
 # HF_TOKEN is consumed natively by huggingface_hub / transformers
@@ -49,15 +106,6 @@ ENV INTENT_CLF_PATH=ethicalabs/Echo-DSRN-v0.1.4-Research-Intent-CLF
 
 # Active collab annotation round (overridable at runtime via env/helm)
 ENV MODEL_VERSION=v0.1.4
-
-# Copy the entire application code
-# HuggingFace datasets collection URL (injected at build time for the UI)
-ARG VITE_HF_DATASETS_URL="https://huggingface.co/collections/ethicalabs/openaire-ai-hackathon-2026"
-
-COPY . .
-
-# Build the frontend locally
-RUN cd frontend && npm install && npm run build
 
 # Ensure entrypoint is executable
 RUN chmod +x docker_entrypoint.sh

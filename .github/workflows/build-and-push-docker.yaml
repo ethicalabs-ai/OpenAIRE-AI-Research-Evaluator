@@ -1,19 +1,39 @@
 name: docker
 
+# The image is rebuilt on every green main commit (via python-ci) and can also
+# be rebuilt on demand — that is the route for picking up base-image / OS
+# security updates without a code change.
 on:
-  push:
-    branches: [main]
   workflow_run:
     workflows: ["python-ci"]
-    types:
-      - completed
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   docker:
+    # workflow_run carries no branch filter of its own: a pull_request run from
+    # a fork completes here too, so gate on a push to main that passed CI.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Resolve image tag
+        id: rev
+        env:
+          REV: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: echo "short=${REV::7}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -24,13 +44,32 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Published under an immutable sha tag first: :latest only moves once the
+      # scan below has passed.
       - name: Build and push
-        if: ${{ github.event.workflow_run.conclusion == 'success' }}
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           platforms: linux/amd64
-          tags: ethicalabs/openaire-research-evaluator:latest
+          tags: ethicalabs/openaire-research-evaluator:sha-${{ steps.rev.outputs.short }}
           secrets: |
             "HF_TOKEN=${{ secrets.HF_TOKEN }}"
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan image for fixable CVEs
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasecurity/trivy:0.76.2 image \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            --exit-code 1 \
+            ethicalabs/openaire-research-evaluator:sha-${{ steps.rev.outputs.short }}
+
+      - name: Promote to latest
+        run: |
+          docker buildx imagetools create \
+            -t ethicalabs/openaire-research-evaluator:latest \
+            ethicalabs/openaire-research-evaluator:sha-${{ steps.rev.outputs.short }}

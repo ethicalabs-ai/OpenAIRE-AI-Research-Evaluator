@@ -27,6 +27,14 @@ build-docker: ## Build the Docker image (reads HF_TOKEN from .env)
 	@HF_TOKEN=$$(grep '^HF_TOKEN=' .env | cut -d'=' -f2- | head -1); \
 	DOCKER_BUILDKIT=1 docker build --secret id=HF_TOKEN,env=HF_TOKEN -t echo-dsrn-graph . 2>&1 | tail -5
 
+lock: ## Re-resolve requirements.txt into the hash-pinned requirements.lock
+	uv pip compile requirements.txt --index-strategy unsafe-best-match --python-version 3.12 \
+		--python-platform x86_64-manylinux_2_28 --generate-hashes \
+		--no-header --no-annotate -o requirements.lock
+
+scan: ## Scan the local image for fixable CRITICAL/HIGH CVEs
+	trivy image --severity CRITICAL,HIGH --ignore-unfixed echo-dsrn-graph
+
 rebuild: ## Clean rebuild all Docker images from scratch
 	@HF_TOKEN=$$(grep '^HF_TOKEN=' .env | cut -d'=' -f2- | head -1); \
 	DOCKER_BUILDKIT=1 docker build --no-cache --secret id=HF_TOKEN,env=HF_TOKEN -t echo-dsrn-graph . 2>&1 | tail -5

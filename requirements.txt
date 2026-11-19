@@ -1,3 +1,10 @@
+# CPU-only torch: nothing in the compose/Helm deployments has a GPU, and the
+# default PyPI wheel drags in ~4 GB of unused CUDA libraries. The CPU index is
+# listed first so `torch` resolves to its +cpu build; everything else falls
+# through to PyPI.
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
+
 torch>=2.2.0
 transformers>=4.40.0
 peft>=0.10.0
@@ -20,6 +27,17 @@ uvicorn
 python-multipart
 sqlalchemy
 alembic
-python-jose[cryptography]
+PyJWT>=2.10.1
 python-dotenv>=1.0.0
 openai>=1.0.0
+# Imported directly by backend/server.py; openai 3.x no longer pulls it in.
+httpx>=0.28.0
+requests>=2.32.0
+
+# Transitive dependencies with known CVEs — floors keep the resolver honest
+# even when a parent package would happily pin something older.
+certifi>=2026.10.18
+urllib3>=2.8.0
+aiohttp>=3.14.4
+filelock>=4.2.1
+jaraco.context>=6.1.0
